@@ -71,8 +71,8 @@ fn read_config() -> Result<Config> {
             println!("cargo:warning=BUILD_CONFIG_PATH not set. Using default configuration.");
             let default_config = r#"
                 [circuit]
-                dir = "examples/circom/keccak256"
-                name = "keccak256_256_test"
+                dir = "examples/circom/rsa"
+                name = "rsa_main"
 
                 [dylib]
                 use_dylib = false

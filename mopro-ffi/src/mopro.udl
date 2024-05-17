@@ -9,6 +9,9 @@ namespace mopro {
   void initialize_mopro_dylib(string dylib_path);
 
   [Throws=MoproError]
+  sequence<string> full_prove(record<string, sequence<string>> circuit_inputs);
+
+  [Throws=MoproError]
   GenerateProofResult generate_proof2(record<string, sequence<string>> circuit_inputs);
 
   [Throws=MoproError]

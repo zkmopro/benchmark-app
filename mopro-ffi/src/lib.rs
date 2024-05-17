@@ -1,4 +1,5 @@
 use mopro_core::middleware::circom;
+use mopro_core::middleware::circom::serialization::{SerializableInputs, SerializableProof};
 use mopro_core::MoproError;
 
 #[cfg(feature = "gpu-benchmarks")]
@@ -123,6 +124,26 @@ pub fn generate_proof2(
         inputs: serialized_inputs,
     })
 }
+
+pub fn full_prove(inputs: HashMap<String, Vec<String>>) -> Result<Vec<String>, MoproError> {
+    // Convert inputs to BigInt
+    let bigint_inputs = inputs
+        .into_iter()
+        .map(|(k, v)| {
+            (
+                k,
+                v.into_iter()
+                    .map(|i| BigInt::from_str(&i).unwrap())
+                    .collect(),
+            )
+        })
+        .collect();
+
+    let witness = circom::full_prove(bigint_inputs).unwrap();
+
+    Ok(witness)
+}
+
 
 pub fn verify_proof2(proof: Vec<u8>, public_input: Vec<u8>) -> Result<bool, MoproError> {
     let deserialized_proof = circom::serialization::deserialize_proof(proof);

@@ -9,18 +9,18 @@ use std::sync::Mutex;
 use std::time::Instant;
 use std::{collections::HashMap, fs::File, io::BufReader};
 
-use ark_bn254::{Bn254, Fr};
+use ark_bn254::{Bn254, Fr, FrConfig};
 use ark_circom::{
     read_zkey,
     CircomReduction,
     WitnessCalculator, //read_zkey,
 };
 use ark_crypto_primitives::snark::SNARK;
+use ark_ff::{Fp, MontBackend};
 use ark_groth16::{prepare_verifying_key, Groth16, ProvingKey};
-use ark_std::UniformRand;
-
 use ark_relations::r1cs::ConstraintMatrices;
 use ark_std::rand::thread_rng;
+use ark_std::{str::FromStr, UniformRand};
 use color_eyre::Result;
 use core::include_bytes;
 use num_bigint::BigInt;
@@ -192,12 +192,88 @@ pub fn witness_calculator() -> &'static Mutex<WitnessCalculator> {
 #[must_use]
 pub fn witness_calculator() -> &'static Mutex<WitnessCalculator> {
     WITNESS_CALCULATOR.get_or_init(|| {
-        let store = Store::default();
-        let module = Module::from_binary(&store, WASM).expect("WASM should be valid");
-        let result =
-            WitnessCalculator::from_module(module).expect("Failed to create WitnessCalculator");
-        Mutex::new(result)
+        let wasm_bytes: Vec<u8> = WASM.to_vec();
+        let result = WitnessCalculator::from_bytes(&wasm_bytes)
+            .map_err(|e| MoproError::CircomError(e.to_string()));
+        Mutex::new(result.unwrap())
     })
+}
+
+pub fn full_prove(inputs: CircuitInputs) -> Result<Vec<String>> {
+    println!("Generating witness");
+
+    let now = std::time::Instant::now();
+    #[cfg(not(feature = "calc-native-witness"))]
+    let full_assignment = witness_calculator()
+        .lock()
+        .expect("Failed to lock witness calculator")
+        .calculate_witness_element::<Bn254, _>(inputs, false)
+        .map_err(|e| MoproError::CircomError(e.to_string()))?;
+    #[cfg(feature = "calc-native-witness")]
+    let full_assignment = calculate_witness_with_graph(inputs);
+
+    let elapsed = now.elapsed();
+    println!("Witness generation took: {:.2?}", elapsed);
+    let milliseconds = elapsed.as_secs() * 1000000 + u64::from(elapsed.subsec_micros());
+
+    // Format the milliseconds as a string
+    let wit_milliseconds_string = format!("{}", milliseconds);
+    println!("Time taken: {} ms", wit_milliseconds_string);
+
+    let mut rng = thread_rng();
+    let rng = &mut rng;
+
+    let r = ark_bn254::Fr::rand(rng);
+    let s = ark_bn254::Fr::rand(rng);
+
+    let now = std::time::Instant::now();
+    let zkey = zkey();
+    // let zkey = arkzkey();
+    println!("Loading zkey took: {:.2?}", now.elapsed());
+
+    let public_inputs = full_assignment.as_slice()[1..zkey.1.num_instance_variables].to_vec();
+
+    let now = std::time::Instant::now();
+    let ark_proof = Groth16::<_, CircomReduction>::create_proof_with_reduction_and_matrices(
+        &zkey.0,
+        r,
+        s,
+        &zkey.1,
+        zkey.1.num_instance_variables,
+        zkey.1.num_constraints,
+        full_assignment.as_slice(),
+    );
+
+    let proof = ark_proof.map_err(|e| MoproError::CircomError(e.to_string()))?;
+
+    let elapsed = now.elapsed();
+    println!("Proof generation took: {:.2?}", elapsed);
+    let milliseconds = elapsed.as_secs() * 1000000 + u64::from(elapsed.subsec_micros());
+
+    // Format the milliseconds as a string
+    let proof_milliseconds_string = format!("{}", milliseconds);
+    println!("Time taken: {} ms", proof_milliseconds_string);
+
+    let start = Instant::now();
+    // let zkey = arkzkey();
+    let pvk = prepare_verifying_key(&zkey.0.vk);
+
+    let proof_verified = GrothBn::verify_with_processed_vk(&pvk, &public_inputs, &proof)
+        .map_err(|e| MoproError::CircomError(e.to_string()))?;
+
+    let elapsed = start.elapsed();
+    println!("Verification took: {:.2?}", elapsed);
+    let milliseconds = elapsed.as_secs() * 1000000 + u64::from(elapsed.subsec_micros());
+
+    let verify_milliseconds_string = format!("{}", milliseconds);
+    println!("Time taken: {} ms", verify_milliseconds_string);
+    println!("verification result: {:?}", proof_verified);
+
+    return Ok(vec![
+        wit_milliseconds_string,
+        proof_milliseconds_string,
+        verify_milliseconds_string,
+    ]);
 }
 
 pub fn generate_proof2(
@@ -618,6 +694,38 @@ mod tests {
         assert!(verify_res.is_ok());
 
         assert!(verify_res.unwrap()); // Verifying that the proof was indeed verified
+    }
+
+    #[test]
+    fn test_rsa_witness() {
+        #[derive(serde::Deserialize)]
+        struct InputData {
+            signature: Vec<String>,
+            modulus: Vec<String>,
+            base_message: Vec<String>,
+        }
+
+        let file_data = std::fs::read_to_string("./examples/circom/rsa/input.json")
+            .expect("Unable to read file");
+        let data: InputData =
+            serde_json::from_str(&file_data).expect("JSON was not well-formatted");
+
+        let mut inputs: HashMap<String, Vec<BigInt>> = HashMap::new();
+        inputs.insert(
+            "signature".to_string(),
+            strings_to_circuit_inputs(data.signature),
+        );
+        inputs.insert(
+            "modulus".to_string(),
+            strings_to_circuit_inputs(data.modulus),
+        );
+        inputs.insert(
+            "base_message".to_string(),
+            strings_to_circuit_inputs(data.base_message),
+        );
+
+        let res = full_prove(inputs).unwrap();
+        println!("Time taken: {:?} ms", res);
     }
 
     #[ignore = "ignore for ci"]
