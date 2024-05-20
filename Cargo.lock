@@ -4213,16 +4213,17 @@ dependencies = [
 [[package]]
 name = "witness"
 version = "0.2.0"
-source = "git+https://github.com/philsippl/circom-witness-rs.git#fed7d591a4a6adfde371d3dac3fde23d755bcd39"
 dependencies = [
  "ark-bn254",
  "ark-ff 0.4.1",
  "ark-serialize 0.4.1",
+ "ark-std 0.4.0",
  "byteorder",
  "cxx",
  "cxx-build",
  "eyre",
  "hex",
+ "num-bigint",
  "postcard",
  "rand",
  "ruint",

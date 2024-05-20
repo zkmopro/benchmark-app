@@ -30,12 +30,9 @@ Podfile.lock
 Pods
 #*.xcworkspace
 
-# Ignore static libs
-*.a
-*.dylib
 
 # Ignore framework
-*.xcframework/
+MoproBindings.xcframework/
 
 # Don't ignore podspec for installing MoproBindings
 !Frameworks/MoproBindings.podspec

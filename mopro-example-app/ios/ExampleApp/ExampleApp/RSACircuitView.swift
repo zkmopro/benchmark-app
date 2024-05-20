@@ -35,7 +35,7 @@ struct RSACircuitView: View {
       VStack(spacing: 10) {
         Text("witness generation")
         HStack {
-          Button("wasm3", action: moproFullProve).disabled(moproProving)
+          Button("circom-witness-rs", action: moproFullProve).disabled(moproProving)
           Spacer()
           Text("\(moproWitnessGenTime) ms")
         }.padding()
@@ -261,6 +261,21 @@ extension RSACircuitView {
       FileDownloader.loadFileSync(url: inputUrl!) { (path, error) in
         print("Input File downloaded to : \(path!)")
       }
+        
+        if let datPath = Bundle.main.path(forResource: "cncircuit", ofType: "js", inDirectory: "resources") {
+          do {
+            print("cncircuit")
+
+              guard let datFileHandle = FileHandle(forReadingAtPath: datPath) else {
+                print("Failed to open file at path: \(datPath)")
+                return
+              }
+          } catch {
+            print("Failed to load bundled snarkjs script: \(error)")
+          }
+        } else {
+            print("else")
+        }
 
       if let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
         .first

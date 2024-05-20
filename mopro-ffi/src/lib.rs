@@ -144,7 +144,6 @@ pub fn full_prove(inputs: HashMap<String, Vec<String>>) -> Result<Vec<String>, M
     Ok(witness)
 }
 
-
 pub fn verify_proof2(proof: Vec<u8>, public_input: Vec<u8>) -> Result<bool, MoproError> {
     let deserialized_proof = circom::serialization::deserialize_proof(proof);
     let deserialized_public_input = circom::serialization::deserialize_inputs(public_input);
