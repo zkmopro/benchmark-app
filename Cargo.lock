@@ -4213,6 +4213,7 @@ dependencies = [
 [[package]]
 name = "witness"
 version = "0.2.0"
+source = "git+https://github.com/vivianjeng/circom-witness-rs?branch=rsa#30c23bfc4c1b549d478d32b08b71765ff38b4c3a"
 dependencies = [
  "ark-bn254",
  "ark-ff 0.4.1",

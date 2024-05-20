@@ -64,7 +64,7 @@ ark-groth16 = { version = "=0.4.0", default-features = false, features = [
 ] }
 ark-relations = { version = "0.4", default-features = false }
 ark-zkey = { path = "../ark-zkey" }
-witness = { path = "../../circom-witness-rs", optional = true }
+witness = { git = "https://github.com/vivianjeng/circom-witness-rs", branch = "rsa", optional = true }
 
 # Error handling
 thiserror = "=1.0.39"
