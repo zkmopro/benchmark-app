@@ -1,2 +1,3 @@
 target
 node_modules
+!target/rsa_main.bin
