@@ -27,8 +27,9 @@ BOOL calculateWitnessFromDatAndInputs(NSString *datFilePath, NSDictionary *input
     char *wtns_buffer = (char *)[wtnsData mutableBytes];
     
     wtns_size = [wtnsData length];
+    int result = 1;
     
-    int result = witnesscalc_cncircuit(circuit_buffer, [circuitData length], json_buffer, [jsonData length], wtns_buffer, &wtns_size, error_msg, sizeof(error_msg));
+   // int result = witnesscalc_cncircuit(circuit_buffer, [circuitData length], json_buffer, [jsonData length], wtns_buffer, &wtns_size, error_msg, sizeof(error_msg));
     
     if (result != 0) {
         *errorString = [NSString stringWithUTF8String:error_msg];

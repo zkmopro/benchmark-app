@@ -334,11 +334,11 @@ extension RSACircuitView {
 
         let start = CFAbsoluteTimeGetCurrent()
 
-        let res = witnesscalc_cncircuit(
-          datBuffer, UInt(datFileSize), jsonBuffer, UInt(jsonFileSize), wtnsBuffer, wtnsSize,
-          errorBuffer, errorSize)
-        self.witnesscalcWitness = Data(bytes: wtnsBuffer, count: Int(wtnsSize.pointee))
-        let witness = Data(bytes: wtnsBuffer, count: Int(wtnsSize.pointee))
+        //let res = witnesscalc_cncircuit(
+       //   datBuffer, UInt(datFileSize), jsonBuffer, UInt(jsonFileSize), wtnsBuffer, wtnsSize,
+      //    errorBuffer, errorSize)
+       // self.witnesscalcWitness = Data(bytes: wtnsBuffer, count: Int(wtnsSize.pointee))
+       // let witness = Data(bytes: wtnsBuffer, count: Int(wtnsSize.pointee))
 
         let end = CFAbsoluteTimeGetCurrent()
         let timeTaken = end - start

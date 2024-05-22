@@ -61,6 +61,9 @@ compile_circuit multiplier2 multiplier2.circom
 npm_install keccak256
 compile_circuit keccak256 keccak256_256_test.circom
 
+# Setup and compile sha256_512
+compile_circuit sha256_512 sha256_512.circom
+
 # Setup and compile rsa
 npm_install rsa
 compile_circuit rsa rsa_main.circom
@@ -84,6 +87,10 @@ print_action "[core/circom] Generating arkzkey for multiplier2..."
 # Run trusted setup for keccak256
 print_action "[core/circom] Running trusted setup for keccak256..."
 ./scripts/trusted_setup.sh keccak256 18 keccak256_256_test
+
+# Run trusted setup for sha256_512
+print_action "[core/circom] Running trusted setup for sha256_512..."
+./scripts/trusted_setup.sh sha256_512 18 sha256_512
 
 # Generate arkzkey for keccak256
 print_action "[core/circom] Generating arkzkey for keccak256..."

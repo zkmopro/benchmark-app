@@ -15,7 +15,7 @@ struct KeccakCircuitView: View {
     @State private var generatedProof: Data?
     @State private var publicInputs: Data?
 
-    //let moproCircom = MoproCircom()
+    let moproCircom = MoproCircom()
 
     var body: some View {
         NavigationView {
@@ -48,7 +48,7 @@ extension KeccakCircuitView {
         Task {
             do {
                 let start = CFAbsoluteTimeGetCurrent()
-                try initializeMopro()
+                
                 let end = CFAbsoluteTimeGetCurrent()
                 let timeTaken = end - start
                 textViewText += "\(String(format: "%.3f", timeTaken))s\n"

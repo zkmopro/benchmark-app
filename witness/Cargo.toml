@@ -1,0 +1,41 @@
+[package]
+name = "witness"
+version = "0.2.0"
+edition = "2021"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "generate-witness"
+path = "src/bin/generate-witness.rs"
+
+[dependencies]
+ark-bn254 = { version = "0.4.0", features = ["std"] }
+ark-ff = { version = "0.4.0", features = ["std"] }
+ark-serialize = { version = "0.4", features = ["derive"] }
+byteorder = "1.4.3"
+cxx = "1.0"
+eyre = "0.6.5"
+hex = "0.4.3"
+postcard = { version = "1.0.8", features = [
+    "use-std",
+], default-features = false }
+rand = "0.8.5"
+ruint = { version = "1.10.0", features = ["rand", "serde", "ark-ff-04"] }
+serde = { version = "1.0.190", features = ["derive"] }
+serde_json = "1.0.64"
+ark-std = { version = "^0.4.0" }
+num-bigint = { version = "=0.4.3", default-features = false, features = [
+    "rand",
+] }
+
+[build-dependencies]
+cxx-build = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+debug = true
+
+[features]
+build-witness = []

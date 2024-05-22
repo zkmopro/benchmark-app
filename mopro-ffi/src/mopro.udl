@@ -64,11 +64,14 @@ interface MoproCircom {
   constructor();
 
   [Throws=MoproError]
-  void initialize(string zkey_path, string wasm_path);
+  void initialize(string zkey_path, string graph_path);
 
   [Throws=MoproError]
-  GenerateProofResult generate_proof(record<string, sequence<string>> circuit_inputs);
+  string generate_witness(record<string, sequence<string>> circuit_inputs);
 
   [Throws=MoproError]
-  boolean verify_proof(bytes proof, bytes public_input);
+  string generate_proof();
+
+  [Throws=MoproError]
+  string verify_proof();
 };

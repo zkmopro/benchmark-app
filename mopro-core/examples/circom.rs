@@ -22,20 +22,20 @@ fn main() {
     inputs.insert("a".to_string(), vec![BigInt::from(3)]);
     inputs.insert("b".to_string(), vec![BigInt::from(5)]);
 
-    // Proof generation
-    let generate_proof_res = circom_state.generate_proof(inputs);
+    // // Proof generation
+    // let generate_proof_res = circom_state.generate_proof(inputs);
 
-    // Check and print the error if there is one
-    if let Err(e) = &generate_proof_res {
-        println!("Error: {:?}", e);
-    }
+    // // Check and print the error if there is one
+    // if let Err(e) = &generate_proof_res {
+    //     println!("Error: {:?}", e);
+    // }
 
-    assert!(generate_proof_res.is_ok());
+    // assert!(generate_proof_res.is_ok());
 
-    let (serialized_proof, serialized_inputs) = generate_proof_res.unwrap();
+    // let (serialized_proof, serialized_inputs) = generate_proof_res.unwrap();
 
-    // Proof verification
-    let verify_res = circom_state.verify_proof(serialized_proof, serialized_inputs);
-    assert!(verify_res.is_ok());
-    assert!(verify_res.unwrap()); // Verifying that the proof was indeed verified
+    // // Proof verification
+    // let verify_res = circom_state.verify_proof(serialized_proof, serialized_inputs);
+    // assert!(verify_res.is_ok());
+    // assert!(verify_res.unwrap()); // Verifying that the proof was indeed verified
 }

@@ -399,9 +399,10 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 
 public protocol MoproCircomProtocol {
-    func generateProof(circuitInputs: [String: [String]])  throws -> GenerateProofResult
-    func initialize(zkeyPath: String, wasmPath: String)  throws
-    func verifyProof(proof: Data, publicInput: Data)  throws -> Bool
+    func generateProof()  throws -> String
+    func generateWitness(circuitInputs: [String: [String]])  throws -> String
+    func initialize(zkeyPath: String, graphPath: String)  throws
+    func verifyProof()  throws -> String
     
 }
 
@@ -429,34 +430,42 @@ public class MoproCircom: MoproCircomProtocol {
     
     
 
-    public func generateProof(circuitInputs: [String: [String]]) throws -> GenerateProofResult {
-        return try  FfiConverterTypeGenerateProofResult.lift(
+    public func generateProof() throws -> String {
+        return try  FfiConverterString.lift(
             try 
     rustCallWithError(FfiConverterTypeMoproError.lift) {
-    uniffi_mopro_ffi_fn_method_moprocircom_generate_proof(self.pointer, 
+    uniffi_mopro_ffi_fn_method_moprocircom_generate_proof(self.pointer, $0
+    )
+}
+        )
+    }
+
+    public func generateWitness(circuitInputs: [String: [String]]) throws -> String {
+        return try  FfiConverterString.lift(
+            try 
+    rustCallWithError(FfiConverterTypeMoproError.lift) {
+    uniffi_mopro_ffi_fn_method_moprocircom_generate_witness(self.pointer, 
         FfiConverterDictionaryStringSequenceString.lower(circuitInputs),$0
     )
 }
         )
     }
 
-    public func initialize(zkeyPath: String, wasmPath: String) throws {
+    public func initialize(zkeyPath: String, graphPath: String) throws {
         try 
     rustCallWithError(FfiConverterTypeMoproError.lift) {
     uniffi_mopro_ffi_fn_method_moprocircom_initialize(self.pointer, 
         FfiConverterString.lower(zkeyPath),
-        FfiConverterString.lower(wasmPath),$0
+        FfiConverterString.lower(graphPath),$0
     )
 }
     }
 
-    public func verifyProof(proof: Data, publicInput: Data) throws -> Bool {
-        return try  FfiConverterBool.lift(
+    public func verifyProof() throws -> String {
+        return try  FfiConverterString.lift(
             try 
     rustCallWithError(FfiConverterTypeMoproError.lift) {
-    uniffi_mopro_ffi_fn_method_moprocircom_verify_proof(self.pointer, 
-        FfiConverterData.lower(proof),
-        FfiConverterData.lower(publicInput),$0
+    uniffi_mopro_ffi_fn_method_moprocircom_verify_proof(self.pointer, $0
     )
 }
         )
@@ -1041,13 +1050,16 @@ private var initializationResult: InitializationResult {
     if (uniffi_mopro_ffi_checksum_func_verify_proof2() != 37192) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_mopro_ffi_checksum_method_moprocircom_generate_proof() != 64602) {
+    if (uniffi_mopro_ffi_checksum_method_moprocircom_generate_proof() != 3156) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_mopro_ffi_checksum_method_moprocircom_initialize() != 50370) {
+    if (uniffi_mopro_ffi_checksum_method_moprocircom_generate_witness() != 32439) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_mopro_ffi_checksum_method_moprocircom_verify_proof() != 61522) {
+    if (uniffi_mopro_ffi_checksum_method_moprocircom_initialize() != 48788) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_mopro_ffi_checksum_method_moprocircom_verify_proof() != 30274) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_mopro_ffi_checksum_constructor_moprocircom_new() != 42205) {

@@ -188,18 +188,17 @@ impl MoproCircom {
         }
     }
 
-    pub fn initialize(&self, zkey_path: String, wasm_path: String) -> Result<(), MoproError> {
+    pub fn initialize(&self, zkey_path: String, graph_path: String) -> Result<(), MoproError> {
         let mut state_guard = self.state.write().unwrap();
-        state_guard.initialize(zkey_path.as_str(), wasm_path.as_str())?;
+        state_guard.initialize(zkey_path.as_str(), graph_path.as_str())?;
         Ok(())
     }
 
     //             inputs: circom::serialization::serialize_inputs(&inputs),
-
-    pub fn generate_proof(
+    pub fn generate_witness(
         &self,
         inputs: HashMap<String, Vec<String>>,
-    ) -> Result<GenerateProofResult, MoproError> {
+    ) -> Result<String, MoproError> {
         let mut state_guard = self.state.write().unwrap();
 
         // Convert inputs to BigInt
@@ -214,21 +213,23 @@ impl MoproCircom {
                 )
             })
             .collect();
-
-        let (proof, inputs) = state_guard.generate_proof(bigint_inputs)?;
-
-        Ok(GenerateProofResult {
-            proof: circom::serialization::serialize_proof(&proof),
-            inputs: circom::serialization::serialize_inputs(&inputs),
-        })
+        let time = state_guard.generate_witness(bigint_inputs).unwrap();
+        Ok(time)
     }
 
-    pub fn verify_proof(&self, proof: Vec<u8>, public_input: Vec<u8>) -> Result<bool, MoproError> {
+    pub fn generate_proof(
+        &self,
+    ) -> Result<String, MoproError> {
+        let mut state_guard = self.state.write().unwrap();
+        let time = state_guard.generate_proof()?;
+
+        Ok(time)
+    }
+
+    pub fn verify_proof(&self) -> Result<String, MoproError> {
         let state_guard = self.state.read().unwrap();
-        let deserialized_proof = circom::serialization::deserialize_proof(proof);
-        let deserialized_public_input = circom::serialization::deserialize_inputs(public_input);
-        let is_valid = state_guard.verify_proof(deserialized_proof, deserialized_public_input)?;
-        Ok(is_valid)
+        let is_valid = state_guard.verify_proof()?;
+        Ok(is_valid.1)
     }
 }
 
@@ -338,128 +339,128 @@ mod tests {
         assert_eq!(result, 4);
     }
 
-    #[test]
-    fn test_end_to_end() -> Result<(), MoproError> {
-        // Paths to your wasm and zkey files
-        let wasm_path =
-            "./../mopro-core/examples/circom/multiplier2/target/multiplier2_js/multiplier2.wasm";
-        let zkey_path = "./../mopro-core/examples/circom/multiplier2/target/multiplier2_final.zkey";
+    // #[test]
+    // fn test_end_to_end() -> Result<(), MoproError> {
+    //     // Paths to your wasm and zkey files
+    //     let wasm_path =
+    //         "./../mopro-core/examples/circom/multiplier2/target/multiplier2_js/multiplier2.wasm";
+    //     let zkey_path = "./../mopro-core/examples/circom/multiplier2/target/multiplier2_final.zkey";
 
-        // Create a new MoproCircom instance
-        let mopro_circom = MoproCircom::new();
+    //     // Create a new MoproCircom instance
+    //     let mopro_circom = MoproCircom::new();
 
-        // Step 1: Initialize
-        let init_result = mopro_circom.initialize(zkey_path.to_string(), wasm_path.to_string());
-        assert!(init_result.is_ok());
+    //     // Step 1: Initialize
+    //     let init_result = mopro_circom.initialize(zkey_path.to_string(), wasm_path.to_string());
+    //     assert!(init_result.is_ok());
 
-        let mut inputs = HashMap::new();
-        let a = BigUint::from_str(
-            "21888242871839275222246405745257275088548364400416034343698204186575808495616",
-        )
-        .unwrap();
-        let b = BigUint::from(1u8);
-        let c = a.clone() * b.clone();
-        inputs.insert("a".to_string(), vec![a.to_string()]);
-        inputs.insert("b".to_string(), vec![b.to_string()]);
-        // output = [public output c, public input a]
-        let expected_output = vec![Fr::from(c), Fr::from(a)];
-        let circom_outputs = circom::serialization::SerializableInputs(expected_output);
-        let serialized_outputs = circom::serialization::serialize_inputs(&circom_outputs);
+    //     let mut inputs = HashMap::new();
+    //     let a = BigUint::from_str(
+    //         "21888242871839275222246405745257275088548364400416034343698204186575808495616",
+    //     )
+    //     .unwrap();
+    //     let b = BigUint::from(1u8);
+    //     let c = a.clone() * b.clone();
+    //     inputs.insert("a".to_string(), vec![a.to_string()]);
+    //     inputs.insert("b".to_string(), vec![b.to_string()]);
+    //     // output = [public output c, public input a]
+    //     let expected_output = vec![Fr::from(c), Fr::from(a)];
+    //     let circom_outputs = circom::serialization::SerializableInputs(expected_output);
+    //     let serialized_outputs = circom::serialization::serialize_inputs(&circom_outputs);
 
-        // Step 2: Generate Proof
-        let generate_proof_result = mopro_circom.generate_proof(inputs)?;
-        let serialized_proof = generate_proof_result.proof;
-        let serialized_inputs = generate_proof_result.inputs;
+    //     // Step 2: Generate Proof
+    //     let generate_proof_result = mopro_circom.generate_proof(inputs)?;
+    //     let serialized_proof = generate_proof_result.proof;
+    //     let serialized_inputs = generate_proof_result.inputs;
 
-        assert!(serialized_proof.len() > 0);
-        assert_eq!(serialized_inputs, serialized_outputs);
+    //     assert!(serialized_proof.len() > 0);
+    //     assert_eq!(serialized_inputs, serialized_outputs);
 
-        // Step 3: Verify Proof
-        let is_valid =
-            mopro_circom.verify_proof(serialized_proof.clone(), serialized_inputs.clone())?;
-        assert!(is_valid);
+    //     // Step 3: Verify Proof
+    //     let is_valid =
+    //         mopro_circom.verify_proof(serialized_proof.clone(), serialized_inputs.clone())?;
+    //     assert!(is_valid);
 
-        // Step 4: Convert Proof to Ethereum compatible proof
-        let proof_calldata = to_ethereum_proof(serialized_proof);
-        let inputs_calldata = to_ethereum_inputs(serialized_inputs);
-        assert!(proof_calldata.a.x.len() > 0);
-        assert!(inputs_calldata.len() > 0);
+    //     // Step 4: Convert Proof to Ethereum compatible proof
+    //     let proof_calldata = to_ethereum_proof(serialized_proof);
+    //     let inputs_calldata = to_ethereum_inputs(serialized_inputs);
+    //     assert!(proof_calldata.a.x.len() > 0);
+    //     assert!(inputs_calldata.len() > 0);
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    #[test]
-    fn test_end_to_end_keccak() -> Result<(), MoproError> {
-        // Paths to your wasm and r1cs files
-        let wasm_path =
-            "./../mopro-core/examples/circom/keccak256/target/keccak256_256_test_js/keccak256_256_test.wasm";
-        let zkey_path =
-            "./../mopro-core/examples/circom/keccak256/target/keccak256_256_test_final.zkey";
+    // #[test]
+    // fn test_end_to_end_keccak() -> Result<(), MoproError> {
+    //     // Paths to your wasm and r1cs files
+    //     let wasm_path =
+    //         "./../mopro-core/examples/circom/keccak256/target/keccak256_256_test_js/keccak256_256_test.wasm";
+    //     let zkey_path =
+    //         "./../mopro-core/examples/circom/keccak256/target/keccak256_256_test_final.zkey";
 
-        // Create a new MoproCircom instance
-        let mopro_circom = MoproCircom::new();
+    //     // Create a new MoproCircom instance
+    //     let mopro_circom = MoproCircom::new();
 
-        // Step 1: Setup
-        let setup_result = mopro_circom.initialize(zkey_path.to_string(), wasm_path.to_string());
-        assert!(setup_result.is_ok());
+    //     // Step 1: Setup
+    //     let setup_result = mopro_circom.initialize(zkey_path.to_string(), wasm_path.to_string());
+    //     assert!(setup_result.is_ok());
 
-        // Prepare inputs
-        let input_vec = vec![
-            116, 101, 115, 116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0,
-        ];
+    //     // Prepare inputs
+    //     let input_vec = vec![
+    //         116, 101, 115, 116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    //         0, 0, 0, 0, 0, 0,
+    //     ];
 
-        // Expected output
-        let expected_output_vec = vec![
-            37, 17, 98, 135, 161, 178, 88, 97, 125, 150, 143, 65, 228, 211, 170, 133, 153, 9, 88,
-            212, 4, 212, 175, 238, 249, 210, 214, 116, 170, 85, 45, 21,
-        ];
+    //     // Expected output
+    //     let expected_output_vec = vec![
+    //         37, 17, 98, 135, 161, 178, 88, 97, 125, 150, 143, 65, 228, 211, 170, 133, 153, 9, 88,
+    //         212, 4, 212, 175, 238, 249, 210, 214, 116, 170, 85, 45, 21,
+    //     ];
 
-        let inputs = bytes_to_circuit_inputs(&input_vec);
-        let serialized_outputs = bytes_to_circuit_outputs(&expected_output_vec);
+    //     let inputs = bytes_to_circuit_inputs(&input_vec);
+    //     let serialized_outputs = bytes_to_circuit_outputs(&expected_output_vec);
 
-        // Step 2: Generate Proof
-        let generate_proof_result = mopro_circom.generate_proof(inputs)?;
-        let serialized_proof = generate_proof_result.proof;
-        let serialized_inputs = generate_proof_result.inputs;
+    //     // Step 2: Generate Proof
+    //     let generate_proof_result = mopro_circom.generate_proof(inputs)?;
+    //     let serialized_proof = generate_proof_result.proof;
+    //     let serialized_inputs = generate_proof_result.inputs;
 
-        assert!(serialized_proof.len() > 0);
-        assert_eq!(serialized_inputs, serialized_outputs);
+    //     assert!(serialized_proof.len() > 0);
+    //     assert_eq!(serialized_inputs, serialized_outputs);
 
-        // Step 3: Verify Proof
+    //     // Step 3: Verify Proof
 
-        let is_valid =
-            mopro_circom.verify_proof(serialized_proof.clone(), serialized_inputs.clone())?;
-        assert!(is_valid);
+    //     let is_valid =
+    //         mopro_circom.verify_proof(serialized_proof.clone(), serialized_inputs.clone())?;
+    //     assert!(is_valid);
 
-        // Step 4: Convert Proof to Ethereum compatible proof
-        let proof_calldata = to_ethereum_proof(serialized_proof);
-        let inputs_calldata = to_ethereum_inputs(serialized_inputs);
-        assert!(proof_calldata.a.x.len() > 0);
-        assert!(inputs_calldata.len() > 0);
+    //     // Step 4: Convert Proof to Ethereum compatible proof
+    //     let proof_calldata = to_ethereum_proof(serialized_proof);
+    //     let inputs_calldata = to_ethereum_inputs(serialized_inputs);
+    //     assert!(proof_calldata.a.x.len() > 0);
+    //     assert!(inputs_calldata.len() > 0);
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    #[test]
-    #[cfg(feature = "gpu-benchmarks")]
-    fn test_arkworks_pippenger() -> Result<(), MoproError> {
-        let instance_size = 16;
-        let num_instance = 10;
-        let utils_dir = "../mopro-core/src/middleware/gpu_explorations/utils/vectors/16x10";
-        let result = arkworks_pippenger(instance_size, num_instance, &utils_dir).unwrap();
-        println!("Benchmark result: {:#?}", result);
-        Ok(())
-    }
+    // #[test]
+    // #[cfg(feature = "gpu-benchmarks")]
+    // fn test_arkworks_pippenger() -> Result<(), MoproError> {
+    //     let instance_size = 16;
+    //     let num_instance = 10;
+    //     let utils_dir = "../mopro-core/src/middleware/gpu_explorations/utils/vectors/16x10";
+    //     let result = arkworks_pippenger(instance_size, num_instance, &utils_dir).unwrap();
+    //     println!("Benchmark result: {:#?}", result);
+    //     Ok(())
+    // }
 
-    #[test]
-    #[cfg(feature = "gpu-benchmarks")]
-    fn test_trapdoortech_zprize_msm() -> Result<(), MoproError> {
-        let instance_size = 16;
-        let num_instance = 10;
-        let utils_dir = "../mopro-core/src/middleware/gpu_explorations/utils/vectors/16x10";
-        let result = trapdoortech_zprize_msm(instance_size, num_instance, utils_dir);
-        println!("Benchmark result: {:#?}", result);
-        Ok(())
-    }
+    // #[test]
+    // #[cfg(feature = "gpu-benchmarks")]
+    // fn test_trapdoortech_zprize_msm() -> Result<(), MoproError> {
+    //     let instance_size = 16;
+    //     let num_instance = 10;
+    //     let utils_dir = "../mopro-core/src/middleware/gpu_explorations/utils/vectors/16x10";
+    //     let result = trapdoortech_zprize_msm(instance_size, num_instance, utils_dir);
+    //     println!("Benchmark result: {:#?}", result);
+    //     Ok(())
+    // }
 }

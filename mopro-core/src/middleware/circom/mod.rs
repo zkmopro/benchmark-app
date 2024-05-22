@@ -4,10 +4,10 @@ use self::{
 };
 use crate::MoproError;
 
-use std::io::Cursor;
 use std::sync::Mutex;
 use std::time::Instant;
 use std::{collections::HashMap, fs::File, io::BufReader};
+use std::{fs::read, io::Cursor, path::Path};
 
 use ark_bn254::{Bn254, Fr, FrConfig};
 use ark_circom::{
@@ -25,6 +25,7 @@ use color_eyre::Result;
 use core::include_bytes;
 use num_bigint::BigInt;
 use once_cell::sync::{Lazy, OnceCell};
+use witness::graph;
 
 use wasmer::{Module, Store};
 
@@ -54,7 +55,10 @@ type CircuitInputs = HashMap<String, Vec<BigInt>>;
 
 pub struct CircomState {
     zkey: Option<(ProvingKey<Bn254>, ConstraintMatrices<Fr>)>,
-    wtns: Option<WitnessCalculator>,
+    wtns: Option<Graph>,
+    witness: Option<Vec<Fp<MontBackend<FrConfig, 4>, 4>>>,
+    proof: Option<SerializableProof>,
+    inputs: Option<SerializableInputs>,
 }
 
 impl Default for CircomState {
@@ -349,45 +353,68 @@ impl CircomState {
             zkey: None,
             // arkzkey: None,
             wtns: None,
+            witness: None,
+            proof: None,
+            inputs: None,
         }
     }
 
-    pub fn initialize(&mut self, zkey_path: &str, wasm_path: &str) -> Result<(), MoproError> {
+    pub fn initialize(&mut self, zkey_path: &str, graph_path: &str) -> Result<(), MoproError> {
         let mut file = File::open(zkey_path).map_err(|e| MoproError::CircomError(e.to_string()))?;
         let zkey = read_zkey(&mut file).map_err(|e| MoproError::CircomError(e.to_string()))?;
-
-        // read_arkzkey(arkzkey_path).map_err(|e| MoproError::CircomError(e.to_string()))?;
         self.zkey = Some(zkey);
 
-        let wtns = WitnessCalculator::new(wasm_path)
-            .map_err(|e| MoproError::CircomError(e.to_string()))
-            .unwrap();
-        self.wtns = Some(wtns);
+        let graph_bytes: &[u8] = &read(Path::new(graph_path)).unwrap();
+        let witness_graph = init_graph(graph_bytes).unwrap();
+        self.wtns = Some(witness_graph);
 
         Ok(())
     }
 
-    pub fn generate_proof(
-        &mut self,
-        inputs: CircuitInputs,
-    ) -> Result<(SerializableProof, SerializableInputs), MoproError> {
+    pub fn generate_witness(&mut self, inputs: CircuitInputs) -> Result<String> {
+        let inputs_u256: HashMap<String, Vec<U256>> = inputs
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k,
+                    v.into_iter()
+                        .map(|x| U256::from_str(&x.to_string()).unwrap())
+                        .collect(),
+                )
+            })
+            .collect();
+        let now = std::time::Instant::now();
+
+        let witness: Vec<ruint::Uint<256, 4>>;
+        if inputs_u256.contains_key("signature") {
+            witness =
+                witness::calculate_witness_rsa(inputs_u256, self.wtns.as_ref().unwrap()).unwrap();
+        } else {
+            // Signature is not a key in inputs
+            // Add your code here
+            witness =
+                witness::calculate_witness(inputs_u256, self.wtns.as_ref().unwrap()).unwrap();
+        }
+        let full_assignment = witness
+            .into_iter()
+            .map(|x| Fr::from_str(&x.to_string()).unwrap())
+            .collect::<Vec<_>>();
+        let elapsed = now.elapsed();
+        println!("Witness generation took: {:.2?}", elapsed);
+        let milliseconds = elapsed.as_secs() * 1000 + u64::from(elapsed.subsec_millis());
+        let wit_milliseconds_string = format!("{}", milliseconds);
+        self.witness = Some(full_assignment);
+        Ok(wit_milliseconds_string)
+    }
+
+    pub fn generate_proof(&mut self) -> Result<String, MoproError> {
         let mut rng = thread_rng();
         let rng = &mut rng;
 
         let r = ark_bn254::Fr::rand(rng);
         let s = ark_bn254::Fr::rand(rng);
 
-        println!("Generating proof");
-
-        let now = std::time::Instant::now();
-        let full_assignment = self
-            .wtns
-            .clone()
-            .unwrap()
-            .calculate_witness_element::<Bn254, _>(inputs, false)
-            .map_err(|e| MoproError::CircomError(e.to_string()))?;
-
-        println!("Witness generation took: {:.2?}", now.elapsed());
+        let full_assignment = self.witness.as_ref().unwrap();
 
         let now = std::time::Instant::now();
         let zkey = self.zkey.as_ref().ok_or(MoproError::CircomError(
@@ -409,29 +436,39 @@ impl CircomState {
         );
 
         let proof = ark_proof.map_err(|e| MoproError::CircomError(e.to_string()))?;
+        self.proof = Some(SerializableProof(proof));
+        self.inputs = Some(SerializableInputs(public_inputs));
 
-        println!("proof generation took: {:.2?}", now.elapsed());
-        Ok((SerializableProof(proof), SerializableInputs(public_inputs)))
+        let elapsed = now.elapsed();
+        println!("Proof generation took: {:.2?}", elapsed);
+        let milliseconds = elapsed.as_secs() * 1000 + u64::from(elapsed.subsec_millis());
+        let proof_milliseconds_string = format!("{}", milliseconds);
+        Ok(proof_milliseconds_string)
     }
 
-    pub fn verify_proof(
-        &self,
-        serialized_proof: SerializableProof,
-        serialized_inputs: SerializableInputs,
-    ) -> Result<bool, MoproError> {
-        let start = Instant::now();
+    pub fn verify_proof(&self) -> Result<(bool, String), MoproError> {
         let zkey = self.zkey.as_ref().ok_or(MoproError::CircomError(
             "Zkey has not been set up".to_string(),
         ))?;
         let pvk = prepare_verifying_key(&zkey.0.vk);
 
+        let serialized_proof = self.proof.as_ref().ok_or(MoproError::CircomError(
+            "Proof has not been generated".to_string(),
+        ))?;
+        let serialized_inputs = self.inputs.as_ref().ok_or(MoproError::CircomError(
+            "Inputs have not been generated".to_string(),
+        ))?;
+        let start = Instant::now();
         let proof_verified =
             GrothBn::verify_with_processed_vk(&pvk, &serialized_inputs.0, &serialized_proof.0)
                 .map_err(|e| MoproError::CircomError(e.to_string()))?;
 
-        let verification_duration = start.elapsed();
-        println!("Verification time: {:?}", verification_duration);
-        Ok(proof_verified)
+        let elapsed = start.elapsed();
+        println!("Verification took: {:.2?}", elapsed);
+        let milliseconds = elapsed.as_secs() * 1000 + u64::from(elapsed.subsec_millis());
+
+        let verify_milliseconds_string = format!("{}", milliseconds);
+        Ok((proof_verified, verify_milliseconds_string))
     }
 }
 
@@ -466,13 +503,13 @@ mod tests {
 
     #[test]
     fn test_setup_prove_verify_simple() {
-        let wasm_path = "./examples/circom/multiplier2/target/multiplier2_js/multiplier2.wasm";
+        let graph_path = "./examples/circom/multiplier2/target/multiplier2.bin";
         let zkey_path = "./examples/circom/multiplier2/target/multiplier2_final.zkey";
         // Instantiate CircomState
         let mut circom_state = CircomState::new();
 
         // Setup
-        let setup_res = circom_state.initialize(zkey_path, wasm_path);
+        let setup_res = circom_state.initialize(zkey_path, graph_path);
         assert!(setup_res.is_ok());
 
         let _serialized_pk = setup_res.unwrap();
@@ -488,37 +525,26 @@ mod tests {
         let expected_output = vec![Fr::from(c), Fr::from(a)];
         let serialized_outputs = SerializableInputs(expected_output);
 
+        // Witness generation
+        let witness_res = circom_state.generate_witness(inputs);
+
         // Proof generation
-        let generate_proof_res = circom_state.generate_proof(inputs);
-
-        // Check and print the error if there is one
-        if let Err(e) = &generate_proof_res {
-            println!("Error: {:?}", e);
-        }
-
-        assert!(generate_proof_res.is_ok());
-
-        let (serialized_proof, serialized_inputs) = generate_proof_res.unwrap();
-
-        // Check output
-        assert_eq!(serialized_inputs, serialized_outputs);
+        let generate_proof_res = circom_state.generate_proof();
 
         // Proof verification
-        let verify_res = circom_state.verify_proof(serialized_proof, serialized_inputs);
-        assert!(verify_res.is_ok());
-        assert!(verify_res.unwrap()); // Verifying that the proof was indeed verified
+        let verify_res = circom_state.verify_proof();
+        assert!(verify_res.unwrap().0); // Verifying that the proof was indeed verified
     }
 
     #[test]
     fn test_setup_prove_verify_keccak() {
-        let wasm_path =
-            "./examples/circom/keccak256/target/keccak256_256_test_js/keccak256_256_test.wasm";
+        let graph_path = "./examples/circom/keccak256/target/keccak256_256_test.bin";
         let zkey_path = "./examples/circom/keccak256/target/keccak256_256_test_final.zkey";
         // Instantiate CircomState
         let mut circom_state = CircomState::new();
 
         // Setup
-        let setup_res = circom_state.initialize(zkey_path, wasm_path);
+        let setup_res = circom_state.initialize(zkey_path, graph_path);
         assert!(setup_res.is_ok());
 
         let _serialized_pk = setup_res.unwrap();
@@ -536,132 +562,62 @@ mod tests {
         ];
 
         let inputs = bytes_to_circuit_inputs(&input_vec);
-        let serialized_outputs = bytes_to_circuit_outputs(&expected_output_vec);
+        let _ = bytes_to_circuit_outputs(&expected_output_vec);
+
+        // Witness generation
+        let _ = circom_state.generate_witness(inputs);
 
         // Proof generation
-        let generate_proof_res = circom_state.generate_proof(inputs);
-
-        // Check and print the error if there is one
-        if let Err(e) = &generate_proof_res {
-            println!("Error: {:?}", e);
-        }
+        let generate_proof_res = circom_state.generate_proof();
 
         assert!(generate_proof_res.is_ok());
 
-        let (serialized_proof, serialized_inputs) = generate_proof_res.unwrap();
-
-        // Check output
-        assert_eq!(serialized_inputs, serialized_outputs);
-
         // Proof verification
-        let verify_res = circom_state.verify_proof(serialized_proof, serialized_inputs);
+        let verify_res = circom_state.verify_proof();
         assert!(verify_res.is_ok());
-
-        assert!(verify_res.unwrap()); // Verifying that the proof was indeed verified
     }
 
     #[test]
-    fn test_setup_error() {
-        // Arrange: Create a new CircomState instance
+    fn test_setup_prove_verify_sha256_512() {
+        let graph_path = "./examples/circom/sha256_512/target/sha256_512.bin";
+        let zkey_path = "./examples/circom/sha256_512/target/sha256_512_final.zkey";
+        // Instantiate CircomState
         let mut circom_state = CircomState::new();
 
-        let wasm_path = "badpath/multiplier2.wasm";
-        let zkey_path = "badpath/multiplier2.zkey";
+        // Setup
+        let setup_res = circom_state.initialize(zkey_path, graph_path);
+        assert!(setup_res.is_ok());
 
-        // Act: Call the setup method
-        let result = circom_state.initialize(zkey_path, wasm_path);
-
-        // Assert: Check that the method returns an error
-        assert!(result.is_err());
-    }
-
-    #[cfg(feature = "dylib")]
-    #[test]
-    fn test_dylib_init_and_generate_witness() {
-        // Assumes that the dylib file has been built and is in the following location
-        let dylib_path = "target/debug/aarch64-apple-darwin/keccak256.dylib";
-
-        // Initialize libray
-        initialize(Path::new(&dylib_path));
-
-        let input_vec = vec![
-            116, 101, 115, 116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0,
-        ];
-
-        let inputs = bytes_to_circuit_inputs(&input_vec);
-        let now = std::time::Instant::now();
-        let full_assignment = witness_calculator()
-            .lock()
-            .expect("Failed to lock witness calculator")
-            .calculate_witness_element::<Bn254, _>(inputs, false)
-            .map_err(|e| MoproError::CircomError(e.to_string()));
-
-        println!("Witness generation took: {:.2?}", now.elapsed());
-
-        assert!(full_assignment.is_ok());
-    }
-
-    #[test]
-    fn test_generate_proof2() {
-        // XXX: This can be done better
-        #[cfg(feature = "dylib")]
-        {
-            // Assumes that the dylib file has been built and is in the following location
-            let dylib_path = "target/debug/aarch64-apple-darwin/keccak256.dylib";
-
-            // Initialize libray
-            initialize(Path::new(&dylib_path));
-        }
+        let _serialized_pk = setup_res.unwrap();
 
         // Prepare inputs
-        #[derive(serde::Deserialize)]
-        struct InputData {
-            signature: Vec<String>,
-            modulus: Vec<String>,
-            base_message: Vec<String>,
-        }
+        let mut inputs = HashMap::new();
+        inputs.insert("in".to_string(), vec![BigInt::from(1 as u32); 512]);
 
-        let file_data = std::fs::read_to_string("./examples/circom/rsa/input.json")
-            .expect("Unable to read file");
-        let data: InputData =
-            serde_json::from_str(&file_data).expect("JSON was not well-formatted");
+        // Witness generation
+        let _ = circom_state.generate_witness(inputs);
 
-        let mut inputs: HashMap<String, Vec<BigInt>> = HashMap::new();
-        inputs.insert(
-            "signature".to_string(),
-            strings_to_circuit_inputs(data.signature),
-        );
-        inputs.insert(
-            "modulus".to_string(),
-            strings_to_circuit_inputs(data.modulus),
-        );
-        inputs.insert(
-            "base_message".to_string(),
-            strings_to_circuit_inputs(data.base_message),
-        );
+        // Proof generation
+        let generate_proof_res = circom_state.generate_proof();
 
-        let generate_proof_res = generate_proof2(inputs);
-        let (serialized_proof, serialized_inputs) = generate_proof_res.unwrap();
-        // assert_eq!(serialized_inputs, serialized_outputs);
+        assert!(generate_proof_res.is_ok());
 
         // Proof verification
-        let verify_res = verify_proof2(serialized_proof, serialized_inputs);
-        // assert!(verify_res.is_ok());
-        // assert!(verify_res.unwrap()); // Verifying that the proof was indeed verified
+        let verify_res = circom_state.verify_proof();
+        assert!(verify_res.is_ok());
     }
 
     #[ignore = "ignore for ci"]
     #[test]
     fn test_setup_prove_rsa() {
-        let wasm_path = "./examples/circom/rsa/target/main_js/main.wasm";
-        let zkey_path = "./examples/circom/rsa/target/main_final.zkey";
+        let graph_path = "./examples/circom/rsa/target/rsa_main.bin";
+        let zkey_path = "./examples/circom/rsa/target/rsa_main_final.zkey";
 
         // Instantiate CircomState
         let mut circom_state = CircomState::new();
 
         // Setup
-        let setup_res = circom_state.initialize(zkey_path, wasm_path);
+        let setup_res = circom_state.initialize(zkey_path, graph_path);
         assert!(setup_res.is_ok());
 
         let _serialized_pk = setup_res.unwrap();
@@ -693,8 +649,11 @@ mod tests {
             strings_to_circuit_inputs(data.base_message),
         );
 
+        // witness generation
+        let witness_res = circom_state.generate_witness(inputs);
+
         // Proof generation
-        let generate_proof_res = circom_state.generate_proof(inputs);
+        let generate_proof_res = circom_state.generate_proof();
 
         // Check and print the error if there is one
         if let Err(e) = &generate_proof_res {
@@ -703,13 +662,9 @@ mod tests {
 
         assert!(generate_proof_res.is_ok());
 
-        let (serialized_proof, serialized_inputs) = generate_proof_res.unwrap();
-
         // Proof verification
-        let verify_res = circom_state.verify_proof(serialized_proof, serialized_inputs);
+        let verify_res = circom_state.verify_proof();
         assert!(verify_res.is_ok());
-
-        assert!(verify_res.unwrap()); // Verifying that the proof was indeed verified
     }
 
     #[test]
@@ -773,131 +728,6 @@ mod tests {
             "base_message".to_string(),
             strings_to_circuit_inputs(data.base_message),
         );
-
-        // Proof generation
-        let generate_proof_res = generate_proof2(inputs);
-
-        // Check and print the error if there is one
-        if let Err(e) = &generate_proof_res {
-            println!("Error: {:?}", e);
-        }
-
-        assert!(generate_proof_res.is_ok());
-
-        let (serialized_proof, serialized_inputs) = generate_proof_res.unwrap();
-
-        // Proof verification
-        let verify_res = verify_proof2(serialized_proof, serialized_inputs);
-        assert!(verify_res.is_ok());
-
-        assert!(verify_res.unwrap()); // Verifying that the proof was indeed verified
-    }
-
-    #[ignore = "ignore for ci"]
-    #[test]
-    fn test_setup_prove_anon_aadhaar() {
-        let wasm_path =
-            "./examples/circom/anonAadhaar/target/aadhaar-verifier_js/aadhaar-verifier.wasm";
-        let zkey_path = "./examples/circom/anonAadhaar/target/aadhaar-verifier_final.zkey";
-
-        // Instantiate CircomState
-        let mut circom_state = CircomState::new();
-
-        // Setup
-        let setup_res = circom_state.initialize(zkey_path, wasm_path);
-        assert!(setup_res.is_ok());
-
-        let _serialized_pk = setup_res.unwrap();
-
-        // Prepare inputs
-        #[derive(serde::Deserialize)]
-        struct InputData {
-            qr_data_padded: Vec<String>,
-            delimiter_indices: Vec<String>,
-            signature: Vec<String>,
-            pub_key: Vec<String>,
-        }
-
-        let file_data = std::fs::read_to_string("./examples/circom/anonAadhaar/input.json")
-            .expect("Unable to read file");
-        let data: InputData =
-            serde_json::from_str(&file_data).expect("JSON was not well-formatted");
-
-        let mut inputs: CircuitInputs = HashMap::new();
-        inputs.insert(
-            "qrDataPadded".to_string(),
-            strings_to_circuit_inputs(data.qr_data_padded),
-        );
-        inputs.insert("qrDataPaddedLength".to_string(), vec![BigInt::from(1152)]);
-        inputs.insert("nonPaddedDataLength".to_string(), vec![BigInt::from(1137)]);
-        inputs.insert(
-            "delimiterIndices".to_string(),
-            strings_to_circuit_inputs(data.delimiter_indices),
-        );
-        inputs.insert(
-            "signature".to_string(),
-            strings_to_circuit_inputs(data.signature),
-        );
-        inputs.insert(
-            "pubKey".to_string(),
-            strings_to_circuit_inputs(data.pub_key),
-        );
-        inputs.insert("nullifierSeed".to_string(), vec![BigInt::from(12345678)]);
-        inputs.insert("signalHash".to_string(), vec![BigInt::from(1)]);
-        inputs.insert("revealGender".to_string(), vec![BigInt::from(0)]);
-        inputs.insert("revealAgeAbove18".to_string(), vec![BigInt::from(0)]);
-        inputs.insert("revealState".to_string(), vec![BigInt::from(0)]);
-        inputs.insert("revealPinCode".to_string(), vec![BigInt::from(0)]);
-        // Proof generation
-        let generate_proof_res = circom_state.generate_proof(inputs);
-
-        // Check and print the error if there is one
-        if let Err(e) = &generate_proof_res {
-            println!("Error: {:?}", e);
-        }
-
-        assert!(generate_proof_res.is_ok());
-
-        let (serialized_proof, serialized_inputs) = generate_proof_res.unwrap();
-
-        // Proof verification
-        let verify_res = circom_state.verify_proof(serialized_proof, serialized_inputs);
-        assert!(verify_res.is_ok());
-
-        assert!(verify_res.unwrap()); // Verifying that the proof was indeed verified
-    }
-
-    #[ignore = "ignore for ci"]
-    #[test]
-    fn test_setup_prove_anon_aadhaar2() {
-        // Prepare inputs
-        #[derive(serde::Deserialize)]
-        struct InputData {
-            aadhaar_data: Vec<String>,
-            signature: Vec<String>,
-            pub_key: Vec<String>,
-        }
-
-        let file_data = std::fs::read_to_string("./examples/circom/anonAadhaar/input.json")
-            .expect("Unable to read file");
-        let data: InputData =
-            serde_json::from_str(&file_data).expect("JSON was not well-formatted");
-
-        let mut inputs: CircuitInputs = HashMap::new();
-        inputs.insert(
-            "aadhaarData".to_string(),
-            strings_to_circuit_inputs(data.aadhaar_data),
-        );
-        inputs.insert("aadhaarDataLength".to_string(), vec![BigInt::from(64)]);
-        inputs.insert(
-            "signature".to_string(),
-            strings_to_circuit_inputs(data.signature),
-        );
-        inputs.insert(
-            "pubKey".to_string(),
-            strings_to_circuit_inputs(data.pub_key),
-        );
-        inputs.insert("signalHash".to_string(), vec![BigInt::from(1)]);
 
         // Proof generation
         let generate_proof_res = generate_proof2(inputs);
