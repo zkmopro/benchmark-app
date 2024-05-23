@@ -14,6 +14,7 @@ struct BenchmarkView: View {
   @State private var filesNum = 0
   @State private var isVisible = true
   @State private var runningBenchmark = false
+  @State private var finishRunning = false
 
   @State private var sha256WitGenTime = ""
   @State private var sha256ProofGenTime = ""
@@ -162,11 +163,11 @@ struct BenchmarkView: View {
             ForEach(witness) { wit in
               HStack {
                 Text(wit.circuit)
-                  .frame(maxWidth: .infinity, alignment: .leading)
+                  .frame(maxWidth: .infinity, alignment: .trailing)
                 Text(wit.witnessRs)
-                  .frame(maxWidth: .infinity, alignment: .leading)
+                  .frame(maxWidth: .infinity, alignment: .trailing)
                 Text(wit.witnessCalc)
-                  .frame(maxWidth: .infinity, alignment: .leading)
+                  .frame(maxWidth: .infinity, alignment: .trailing)
               }
             }
           }.listRowBackground(Color.gray)  // Background color for Section 1
@@ -196,14 +197,14 @@ struct BenchmarkView: View {
             ForEach(proofData) { pf in
               HStack {
                 Text(pf.circuit)
-                  .frame(maxWidth: .infinity, alignment: .leading)
+                  .frame(maxWidth: .infinity, alignment: .trailing)
                 Text(pf.arkWorks)
-                  .frame(maxWidth: .infinity, alignment: .leading)
+                  .frame(maxWidth: .infinity, alignment: .trailing)
                 Text(pf.rapidSnark)
-                  .frame(maxWidth: .infinity, alignment: .leading)
+                  .frame(maxWidth: .infinity, alignment: .trailing)
               }
             }
-          }
+          }.listRowBackground(Color.gray)
         }
 
         HStack {
@@ -230,11 +231,12 @@ struct BenchmarkView: View {
               .fontWeight(.bold)
               .padding()
               .frame(maxWidth: .infinity)
-              .background(Color.orange)
+              .background(self.finishRunning ? Color.orange : Color.gray)
               .foregroundColor(.white)
               .cornerRadius(10)
               .shadow(color: Color.orange.opacity(0.3), radius: 10, x: 0, y: 5)
               .padding(.horizontal, 10)  // Adds padding on the sides
+              .disabled(!self.finishRunning)
           }
           //Text("non-linear constraints: 59281")
         }
@@ -244,7 +246,10 @@ struct BenchmarkView: View {
 
         // Text("non-linear constraints: 157746")
 
-      }.background(Color(red: 37 / 255, green: 18 / 255, blue: 0 / 255)).edgesIgnoringSafeArea(
+      }
+      .foregroundStyle(.white)
+      .scrollContentBackground(.hidden)
+      .background(Color(red: 37 / 255, green: 18 / 255, blue: 0 / 255)).edgesIgnoringSafeArea(
         .all
       )
       .navigationDestination(isPresented: $showWebProverView) {
@@ -367,6 +372,7 @@ extension BenchmarkView {
       rapidsnarkProveRSA()
       DispatchQueue.main.async {
         self.runningBenchmark = false
+        self.finishRunning = true
       }
     }
 
