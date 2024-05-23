@@ -6,11 +6,14 @@
 //
 
 import SwiftUI
+import SwiftfulLoadingIndicators
 
 struct BenchmarkView: View {
-    private var totalFile = 12
-    @State private var filesNum = 0
-    
+  private var totalFile = 12
+  @State private var filesNum = 0
+  @State private var isVisible = true
+  @State private var runningBenchmark = false
+
   @State private var sha256WitGenTime = ""
   @State private var sha256ProofGenTime = ""
   @State private var sha256VerifyTime = ""
@@ -33,6 +36,33 @@ struct BenchmarkView: View {
   @State private var sha256Witness: Data?
   @State private var rsaWitness: Data?
 
+  struct WitnessTable: Identifiable {
+    let circuit: String
+    var witnessRs: String
+    var witnessCalc: String
+    let id = UUID()
+
+  }
+
+  @State private var witness = [
+    WitnessTable(circuit: "keccak256", witnessRs: "0 ms", witnessCalc: "0 ms"),
+    WitnessTable(circuit: "sha256", witnessRs: "0 ms", witnessCalc: "0 ms"),
+    WitnessTable(circuit: "rsa", witnessRs: "0 ms", witnessCalc: "0 ms"),
+  ]
+
+  struct ProofGenTable: Identifiable {
+    let circuit: String
+    var arkWorks: String
+    var rapidSnark: String
+    let id = UUID()
+  }
+
+  @State private var proofData = [
+    ProofGenTable(circuit: "keccak256", arkWorks: "0 ms", rapidSnark: "0 ms"),
+    ProofGenTable(circuit: "sha256", arkWorks: "0 ms", rapidSnark: "0 ms"),
+    ProofGenTable(circuit: "rsa", arkWorks: "0 ms", rapidSnark: "0 ms"),
+  ]
+
   let rsaZkeyUrl = URL(string: "https://ci-keys.zkmopro.org/rsa_main_final.zkey")
   let rsaGraphrl = URL(string: "https://ci-keys.zkmopro.org/rsa_main.bin")
   let rsaDatUrl = URL(string: "https://ci-keys.zkmopro.org/rsa_main.dat")
@@ -47,191 +77,353 @@ struct BenchmarkView: View {
   let sha256Inputrl = URL(string: "https://ci-keys.zkmopro.org/sha256.json")
 
   var body: some View {
-      Button(action: {
-        download()
-      }) {
-        Text("Download")
-      }.disabled(self.filesNum == self.totalFile)
-      Text("Files downloaded: \(filesNum) / \(totalFile)")
-    
-    Button(action: {
-      sha256()
-      witnessCalcSHA()
-      rapidsnarkProveSHA()
-    }) {
-      Text("SHA256")
-    }.disabled(self.filesNum != self.totalFile)
-    Text("non-linear constraints: 59281")
-    Text("Witness Generation Time").bold()
-    Text("circom-witness-rs: \(sha256WitGenTime) ms")
-    Text("WitnessCalc: \(sha256WitnessCalcTime) ms")
-    Text("Proof Generation Time").bold()
-    Text("ark-works: \(sha256ProofGenTime) ms")
-    Text("rapidsnark: \(sha256RapidsnarkProveTime) ms")
-    //Text("Verification Time").bold()
-    //Text("ark-works: \(sha256VerifyTime) ms")
-    Button(action: {
-      keccak256()
-      witnessCalcKeccak()
-      rapidsnarkProveKeccak()
-    }) {
-      Text("Keccak256")
-    }.disabled(self.filesNum != self.totalFile)
-    Text("non-linear constraints: 150848")
-    Text("Witness Generation Time").bold()
-    Text("circom-witness-rs: \(keccak256WitGenTime) ms")
-    Text("WitnessCalc: \(keccak256WitnessCalcTime) ms")
-    Text("Proof Generation Time").bold()
-    Text("ark-works: \(keccak256ProofGenTime) ms")
-    Text("rapidsnark: \(keccak256RapidsnarkProveTime) ms")
-    //Text("Verification Time").bold()
-    //Text("ark-works: \(keccak256VerifyTime) ms")
-    Button(action: {
-      RSA()
-      witnessCalcRSA()
-      rapidsnarkProveRSA()
-    }) {
-      Text("RSA")
-    }.disabled(self.filesNum != self.totalFile)
-    Text("non-linear constraints: 157746")
-    Text("Witness Generation Time").bold()
-    Text("circom-witness-rs: \(rsaWitGenTime) ms")
-    Text("WitnessCalc: \(rsaWitnessCalcTime) ms")
-    Text("Proof Generation Time").bold()
-    Text("ark-works: \(rsaProofGenTime) ms")
-    Text("rapidsnark: \(rsaRapidsnarkProveTime) ms")
-    //Text("Verification Time").bold()
-    //Text("ark-works: \(rsaVerifyTime) ms")
+    HStack {
+      if self.filesNum != self.totalFile {
+        Button(action: {
+          download()
+        }) {
+          Text("Download")
+        }.disabled(self.filesNum == self.totalFile)
+        Spacer()
+        Text("Files downloaded: \(filesNum) / \(totalFile)")
+      }
+    }.padding(.horizontal)
+    //LoadingIndicator(animation: .threeBalls, color: .white).background(.blue)
+
+    //Button(action: {
+    //  sha256()
+    //  witnessCalcSHA()
+    //  rapidsnarkProveSHA()
+    //}) {
+    // Text("SHA256")
+    //}.disabled(self.filesNum != self.totalFile)
+    //Text("non-linear constraints: 59281")
+    VStack {
+      if self.runningBenchmark {
+        HStack {
+          LoadingIndicator(animation: .threeBalls, color: .white).fontWeight(.bold)
+            .frame(maxWidth: .infinity)
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(10)
+            .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
+            .padding(.horizontal, 5)  // Adds padding on the sides
+          Button(action: {
+            reset()
+          }) {
+            Text("Reset")
+              .fontWeight(.bold)
+              .padding()
+              .frame(maxWidth: .infinity)
+              .background(Color.gray)
+              .foregroundColor(.white)
+              .cornerRadius(10)
+              .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
+          }
+          .padding(.horizontal, 5)  // Adds padding on the sides
+        }
+      } else {
+        HStack {
+          Button(action: {
+            runBenchmark()
+          }) {
+            Text("Run Benchmark!")
+              .fontWeight(.bold)
+              .padding()
+              .frame(maxWidth: .infinity)
+              .background(Color.blue)
+              .foregroundColor(.white)
+              .cornerRadius(10)
+              .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
+          }
+          .padding(.horizontal, 5)  // Adds padding on the sides
+          Button(action: {
+            reset()
+          }) {
+            Text("Reset")
+              .fontWeight(.bold)
+              .padding()
+              .frame(maxWidth: .infinity)
+              .background(Color.gray)
+              .foregroundColor(.white)
+              .cornerRadius(10)
+              .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
+          }
+          .padding(.horizontal, 5)  // Adds padding on the sides
+        }
+
+      }
+
+    }
+    Text("Witness Calculation")
+      .fontWeight(.bold)
+      .frame(maxWidth: .infinity)
+    List {
+      Section(
+        header: HStack {
+          Text("Circuit")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .font(.headline)
+          Text("WitnessRs")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .font(.headline)
+          Text("WitnessCalc")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .font(.headline)
+        }
+      ) {
+        ForEach(witness) { wit in
+          HStack {
+            Text(wit.circuit)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            Text(wit.witnessRs)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            Text(wit.witnessCalc)
+              .frame(maxWidth: .infinity, alignment: .leading)
+          }
+        }
+      }
+    }
+    .navigationTitle("Table with Header")
+
+    Text("Proof Generation")
+      .fontWeight(.bold)
+      .frame(maxWidth: .infinity)
+
+    List {
+      Section(
+        header: HStack {
+          Text("Circuit")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .font(.headline)
+          Text("ark-works")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .font(.headline)
+          Text("rapidSnark")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .font(.headline)
+        }
+      ) {
+        ForEach(proofData) { pf in
+          HStack {
+            Text(pf.circuit)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            Text(pf.arkWorks)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            Text(pf.rapidSnark)
+              .frame(maxWidth: .infinity, alignment: .leading)
+          }
+        }
+      }
+    }
+    .navigationTitle("Table with Header")
+
+    // Text("Witness Generation Time").bold()
+    // Text("circom-witness-rs: \(sha256WitGenTime) ms")
+    // Text("WitnessCalc: \(sha256WitnessCalcTime) ms")
+    // Text("Proof Generation Time").bold()
+    // Text("ark-works: \(sha256ProofGenTime) ms")
+    // Text("rapidsnark: \(sha256RapidsnarkProveTime) ms")
+    // //Text("Verification Time").bold()
+    // //Text("ark-works: \(sha256VerifyTime) ms")
+    // Button(action: {
+    //   keccak256()
+    //   witnessCalcKeccak()
+    //   rapidsnarkProveKeccak()
+    // }) {
+    //   Text("Keccak256")
+    // }.disabled(self.filesNum != self.totalFile)
+    // Text("non-linear constraints: 150848")
+    // Text("Witness Generation Time").bold()
+    // Text("circom-witness-rs: \(keccak256WitGenTime) ms")
+    // Text("WitnessCalc: \(keccak256WitnessCalcTime) ms")
+    // Text("Proof Generation Time").bold()
+    // Text("ark-works: \(keccak256ProofGenTime) ms")
+    // Text("rapidsnark: \(keccak256RapidsnarkProveTime) ms")
+    // //Text("Verification Time").bold()
+    // //Text("ark-works: \(keccak256VerifyTime) ms")
+    // Button(action: {
+    //   RSA()
+    //   witnessCalcRSA()
+    //   rapidsnarkProveRSA()
+    // }) {
+    //   Text("RSA")
+    // }.disabled(self.filesNum != self.totalFile)
+    // Text("non-linear constraints: 157746")
+    // Text("Witness Generation Time").bold()
+    // Text("circom-witness-rs: \(rsaWitGenTime) ms")
+    // Text("WitnessCalc: \(rsaWitnessCalcTime) ms")
+    // Text("Proof Generation Time").bold()
+    // Text("ark-works: \(rsaProofGenTime) ms")
+    // Text("rapidsnark: \(rsaRapidsnarkProveTime) ms")
+    Link(
+      "Web prover",
+      destination: URL(string: "https://web-prover.zkmopro.org/")!)
   }
 }
 
 extension BenchmarkView {
-    
-    func download() {
 
-      FileDownloader.loadFileAsync(url: rsaZkeyUrl!) { (path, error) in
-        print("RSA Zkey File downloaded to : \(path!)")
-        self.filesNum += 1
-      }
-
-      FileDownloader.loadFileAsync(url: rsaGraphrl!) { (path, error) in
-        print("RSA Graph File downloaded to : \(path!)")
-        self.filesNum += 1
-      }
-        
-        FileDownloader.loadFileAsync(url: rsaDatUrl!) { (path, error) in
-          print("RSA Dat File downloaded to : \(path!)")
-          self.filesNum += 1
-        }
-
-        FileDownloader.loadFileAsync(url: rsaInputrl!) { (path, error) in
-          print("RSA Input File downloaded to : \(path!)")
-          self.filesNum += 1
-        }
-
-      FileDownloader.loadFileAsync(url: keccakZkeyUrl!) { (path, error) in
-        print("Keccak Zkey File downloaded to : \(path!)")
-        self.filesNum += 1
-      }
-
-      FileDownloader.loadFileAsync(url: keccakGraphUrl!) { (path, error) in
-        print("Keccak Graph File downloaded to : \(path!)")
-        self.filesNum += 1
-      }
-        
-        FileDownloader.loadFileAsync(url: keccakDatUrl!) { (path, error) in
-          print("Keccak Dat File downloaded to : \(path!)")
-          self.filesNum += 1
-        }
-
-        FileDownloader.loadFileAsync(url: keccakInputUrl!) { (path, error) in
-          print("Keccak Input File downloaded to : \(path!)")
-          self.filesNum += 1
-        }
-
-      FileDownloader.loadFileAsync(url: sha256ZkeyUrl!) { (path, error) in
-        print("sha Zkey File downloaded to : \(path!)")
-        self.filesNum += 1
-      }
-
-      FileDownloader.loadFileAsync(url: sha256GraphUrl!) { (path, error) in
-        print("sha Graph File downloaded to : \(path!)")
-        self.filesNum += 1
-      }
-        
-        FileDownloader.loadFileAsync(url: sha256DatUrl!) { (path, error) in
-          print("sha Dat File downloaded to : \(path!)")
-          self.filesNum += 1
-        }
-
-        FileDownloader.loadFileAsync(url: sha256Inputrl!) { (path, error) in
-          print("sha Input File downloaded to : \(path!)")
-          self.filesNum += 1
-        }
+  func handleVisibility() {
+    self.filesNum += 1
+    if self.filesNum == self.totalFile {
+      self.isVisible = false
     }
+  }
+
+  func download() {
+
+    FileDownloader.loadFileAsync(url: rsaZkeyUrl!) { (path, error) in
+      print("RSA Zkey File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: rsaGraphrl!) { (path, error) in
+      print("RSA Graph File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: rsaDatUrl!) { (path, error) in
+      print("RSA Dat File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: rsaInputrl!) { (path, error) in
+      print("RSA Input File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: keccakZkeyUrl!) { (path, error) in
+      print("Keccak Zkey File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: keccakGraphUrl!) { (path, error) in
+      print("Keccak Graph File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: keccakDatUrl!) { (path, error) in
+      print("Keccak Dat File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: keccakInputUrl!) { (path, error) in
+      print("Keccak Input File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: sha256ZkeyUrl!) { (path, error) in
+      print("sha Zkey File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: sha256GraphUrl!) { (path, error) in
+      print("sha Graph File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: sha256DatUrl!) { (path, error) in
+      print("sha Dat File downloaded to : \(path!)")
+      handleVisibility()
+    }
+
+    FileDownloader.loadFileAsync(url: sha256Inputrl!) { (path, error) in
+      print("sha Input File downloaded to : \(path!)")
+      handleVisibility()
+    }
+  }
+
+  func reset() {
+    for i in 0...2 {
+      self.witness[i].witnessRs = "0 ms"
+      self.witness[i].witnessCalc = "0 ms"
+      self.proofData[i].arkWorks = "0 ms"
+      self.proofData[i].rapidSnark = "0 ms"
+    }
+
+  }
+
+  func runBenchmark() {
+    self.runningBenchmark = true
+    DispatchQueue.global(qos: .default).async {
+      keccak256()
+      witnessCalcKeccak()
+      rapidsnarkProveKeccak()
+      sha256()
+      witnessCalcSHA()
+      rapidsnarkProveSHA()
+      RSA()
+      witnessCalcRSA()
+      rapidsnarkProveRSA()
+      DispatchQueue.main.async {
+        self.runningBenchmark = false
+      }
+    }
+
+  }
 
   func sha256() {
-    DispatchQueue.main.async {
-      if let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        .first
-      {
-        let zkeyPath = documentsUrl.appendingPathComponent((sha256ZkeyUrl!).lastPathComponent)
-        let graphPath = documentsUrl.appendingPathComponent((sha256GraphUrl!).lastPathComponent)
-        do {
-          let mopro = MoproCircom()
-          try mopro.initialize(zkeyPath: zkeyPath.path, graphPath: graphPath.path)
-          let inputs = getSHA256Inputs()
+    if let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+      .first
+    {
+      let zkeyPath = documentsUrl.appendingPathComponent((sha256ZkeyUrl!).lastPathComponent)
+      let graphPath = documentsUrl.appendingPathComponent((sha256GraphUrl!).lastPathComponent)
+      do {
+        let mopro = MoproCircom()
+        try mopro.initialize(zkeyPath: zkeyPath.path, graphPath: graphPath.path)
+        let inputs = getSHA256Inputs()
 
-          self.sha256WitGenTime = try mopro.generateWitness(circuitInputs: inputs)
-          self.sha256ProofGenTime = try mopro.generateProof()
-          self.sha256VerifyTime = try mopro.verifyProof()
-        } catch {
-          print("Error: \(error)")
-        }
+        let sha256WitGenTime = try mopro.generateWitness(circuitInputs: inputs)
+        let sha256ProofGenTime = try mopro.generateProof()
+        self.witness[1].witnessRs = String(sha256WitGenTime) + " ms"
+        self.proofData[1].arkWorks = String(sha256ProofGenTime) + " ms"
+      } catch {
+        print("Error: \(error)")
       }
     }
+
   }
 
   func keccak256() {
-    DispatchQueue.main.async {
-      if let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        .first
-      {
-        let zkeyPath = documentsUrl.appendingPathComponent((keccakZkeyUrl!).lastPathComponent)
-        let graphPath = documentsUrl.appendingPathComponent((keccakGraphUrl!).lastPathComponent)
-        do {
-          let mopro = MoproCircom()
-          try mopro.initialize(zkeyPath: zkeyPath.path, graphPath: graphPath.path)
+    if let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+      .first
+    {
+      let zkeyPath = documentsUrl.appendingPathComponent((keccakZkeyUrl!).lastPathComponent)
+      let graphPath = documentsUrl.appendingPathComponent((keccakGraphUrl!).lastPathComponent)
+      do {
+        let mopro = MoproCircom()
+        try mopro.initialize(zkeyPath: zkeyPath.path, graphPath: graphPath.path)
 
-          let inputs = getKeccakInputs()
-          self.keccak256WitGenTime = try mopro.generateWitness(circuitInputs: inputs)
-          self.keccak256ProofGenTime = try mopro.generateProof()
-          self.keccak256VerifyTime = try mopro.verifyProof()
-        } catch {
-          print("Error: \(error)")
-        }
+        let inputs = getKeccakInputs()
+        let keccak256WitGenTime = try mopro.generateWitness(circuitInputs: inputs)
+        let keccak256ProofGenTime = try mopro.generateProof()
+        self.witness[0].witnessRs = String(keccak256WitGenTime) + " ms"
+        self.proofData[0].arkWorks = String(keccak256ProofGenTime) + " ms"
+      } catch {
+        print("Error: \(error)")
       }
     }
+
   }
 
   func RSA() {
-    DispatchQueue.main.async {
-      if let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
-        .first
-      {
-        let zkeyPath = documentsUrl.appendingPathComponent((rsaZkeyUrl!).lastPathComponent)
-        let graphPath = documentsUrl.appendingPathComponent((rsaGraphrl!).lastPathComponent)
-        do {
-          let mopro = MoproCircom()
-          try mopro.initialize(zkeyPath: zkeyPath.path, graphPath: graphPath.path)
+    if let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+      .first
+    {
+      let zkeyPath = documentsUrl.appendingPathComponent((rsaZkeyUrl!).lastPathComponent)
+      let graphPath = documentsUrl.appendingPathComponent((rsaGraphrl!).lastPathComponent)
+      do {
+        let mopro = MoproCircom()
+        try mopro.initialize(zkeyPath: zkeyPath.path, graphPath: graphPath.path)
 
-          let inputs = getRSAInputs()
-          self.rsaWitGenTime = try mopro.generateWitness(circuitInputs: inputs)
-          self.rsaProofGenTime = try mopro.generateProof()
-          self.rsaVerifyTime = try mopro.verifyProof()
-        } catch {
-          print("Error: \(error)")
-        }
+        let inputs = getRSAInputs()
+        let rsaWitGenTime = try mopro.generateWitness(circuitInputs: inputs)
+        let rsaProofGenTime = try mopro.generateProof()
+        self.witness[2].witnessRs = String(rsaWitGenTime) + " ms"
+        self.proofData[2].arkWorks = String(rsaProofGenTime) + " ms"
+      } catch {
+        print("Error: \(error)")
       }
     }
   }
@@ -308,7 +500,8 @@ extension BenchmarkView {
 
       let end = CFAbsoluteTimeGetCurrent()
       let timeTaken = end - start
-      self.keccak256WitnessCalcTime = String(format: "%.0f", timeTaken * 1000.0)
+      let keccak256WitnessCalcTime = String(format: "%.0f", timeTaken * 1000.0)
+      self.witness[0].witnessCalc = String(keccak256WitnessCalcTime) + " ms"
     }
   }
 
@@ -384,7 +577,8 @@ extension BenchmarkView {
 
       let end = CFAbsoluteTimeGetCurrent()
       let timeTaken = end - start
-      self.sha256WitnessCalcTime = String(format: "%.0f", timeTaken * 1000.0)
+      let sha256WitnessCalcTime = String(format: "%.0f", timeTaken * 1000.0)
+      self.witness[1].witnessCalc = String(sha256WitnessCalcTime) + " ms"
     }
   }
 
@@ -460,7 +654,8 @@ extension BenchmarkView {
 
       let end = CFAbsoluteTimeGetCurrent()
       let timeTaken = end - start
-      self.rsaWitnessCalcTime = String(format: "%.0f", timeTaken * 1000.0)
+      let rsaWitnessCalcTime = String(format: "%.0f", timeTaken * 1000.0)
+      self.witness[2].witnessCalc = String(rsaWitnessCalcTime) + " ms"
     }
   }
 
@@ -516,10 +711,8 @@ extension BenchmarkView {
       )
       let end = CFAbsoluteTimeGetCurrent()
       let timeTaken = end - start
-      self.keccak256RapidsnarkProveTime = String(format: "%.0f", timeTaken * 1000.0)
-      //self.rapidSnarkProof = proofBuffer
-      //self.rapidSnarkPublicInputs = publicBuffer
-      //rapidSnarkProving = false
+      let keccak256RapidsnarkProveTime = String(format: "%.0f", timeTaken * 1000.0)
+      self.proofData[0].rapidSnark = String(keccak256RapidsnarkProveTime) + " ms"
     }
   }
 
@@ -575,10 +768,8 @@ extension BenchmarkView {
       )
       let end = CFAbsoluteTimeGetCurrent()
       let timeTaken = end - start
-      self.sha256RapidsnarkProveTime = String(format: "%.0f", timeTaken * 1000.0)
-      //self.rapidSnarkProof = proofBuffer
-      //self.rapidSnarkPublicInputs = publicBuffer
-      //rapidSnarkProving = false
+      let sha256RapidsnarkProveTime = String(format: "%.0f", timeTaken * 1000.0)
+      self.proofData[1].rapidSnark = String(sha256RapidsnarkProveTime) + " ms"
     }
   }
 
@@ -634,10 +825,8 @@ extension BenchmarkView {
       )
       let end = CFAbsoluteTimeGetCurrent()
       let timeTaken = end - start
-      self.rsaRapidsnarkProveTime = String(format: "%.0f", timeTaken * 1000.0)
-      //self.rapidSnarkProof = proofBuffer
-      //self.rapidSnarkPublicInputs = publicBuffer
-      //rapidSnarkProving = false
+      let rsaRapidsnarkProveTime = String(format: "%.0f", timeTaken * 1000.0)
+      self.proofData[2].rapidSnark = String(rsaRapidsnarkProveTime) + " ms"
     }
   }
 }
