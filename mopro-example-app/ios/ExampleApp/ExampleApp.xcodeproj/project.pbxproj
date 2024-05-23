@@ -27,6 +27,9 @@
 		2A29DB932BF4CF2D005A04AA /* FileDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A29DB902BF4CF2D005A04AA /* FileDownloader.swift */; };
 		2A29DB962BF61BBD005A04AA /* SentimentAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A29DB952BF61BBD005A04AA /* SentimentAnalyzer.swift */; };
 		2A29EDDA2BFEF84500F4BBA3 /* SwiftfulLoadingIndicators in Frameworks */ = {isa = PBXBuildFile; productRef = 2A29EDD92BFEF84500F4BBA3 /* SwiftfulLoadingIndicators */; };
+		2A29EDDC2BFF2B4C00F4BBA3 /* WebProverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A29EDDB2BFF2B4C00F4BBA3 /* WebProverView.swift */; };
+		2A29EDDF2BFF3DE400F4BBA3 /* DeviceKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2A29EDDE2BFF3DE400F4BBA3 /* DeviceKit */; };
+		2A29EDE72BFF569700F4BBA3 /* BackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A29EDE62BFF569700F4BBA3 /* BackgroundView.swift */; };
 		2AE6340F2BF49557003FE558 /* RSACircuitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE6340E2BF49557003FE558 /* RSACircuitView.swift */; };
 		56E6EC72191EAD3A5962B55A /* Pods_ExampleApp.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72C8A7A95288D49E1FC887A7 /* Pods_ExampleApp.framework */; };
 		5AFEF211D91E79BC9BA7BCBC /* Pods_ExampleApp_ExampleAppUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3EEEC28F7FAAB743796D5BC0 /* Pods_ExampleApp_ExampleAppUITests.framework */; };
@@ -78,7 +81,6 @@
 		2A29DB6F2BF4B988005A04AA /* ExampleApp-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ExampleApp-Bridging-Header.h"; sourceTree = "<group>"; };
 		2A29DB702BF4B988005A04AA /* ExampleAppTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ExampleAppTests-Bridging-Header.h"; sourceTree = "<group>"; };
 		2A29DB712BF4B988005A04AA /* ExampleAppUITests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "ExampleAppUITests-Bridging-Header.h"; sourceTree = "<group>"; };
-		2A29DB7C2BF4BCC1005A04AA /* RapidsnarkFramework.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RapidsnarkFramework.h; sourceTree = "<group>"; };
 		2A29DB822BF4BCEE005A04AA /* prover.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = prover.h; sourceTree = "<group>"; };
 		2A29DB832BF4BCEE005A04AA /* verifier.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = verifier.h; sourceTree = "<group>"; };
 		2A29DB842BF4BCFC005A04AA /* RapidsnarkFramework.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RapidsnarkFramework.h; path = "../../../../../../anon-aadhaar-react-native/ios/RapidsnarkFramework.h"; sourceTree = "<group>"; };
@@ -87,6 +89,8 @@
 		2A29DB902BF4CF2D005A04AA /* FileDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileDownloader.swift; sourceTree = "<group>"; };
 		2A29DB942BF5A72F005A04AA /* bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bridge.h; sourceTree = "<group>"; };
 		2A29DB952BF61BBD005A04AA /* SentimentAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentimentAnalyzer.swift; sourceTree = "<group>"; };
+		2A29EDDB2BFF2B4C00F4BBA3 /* WebProverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebProverView.swift; sourceTree = "<group>"; };
+		2A29EDE62BFF569700F4BBA3 /* BackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundView.swift; sourceTree = "<group>"; };
 		2AE6340E2BF49557003FE558 /* RSACircuitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RSACircuitView.swift; sourceTree = "<group>"; };
 		2B295895D9D651ADC8A3FD53 /* Pods-ExampleAppTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExampleAppTests.release.xcconfig"; path = "Target Support Files/Pods-ExampleAppTests/Pods-ExampleAppTests.release.xcconfig"; sourceTree = "<group>"; };
 		34902FC9EAE055F0B5C523BE /* Pods-ExampleApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExampleApp.debug.xcconfig"; path = "Target Support Files/Pods-ExampleApp/Pods-ExampleApp.debug.xcconfig"; sourceTree = "<group>"; };
@@ -123,6 +127,7 @@
 				2A055F822BFDD300001F0FFF /* libwitnesscalc_rsa_main.xcframework in Frameworks */,
 				56E6EC72191EAD3A5962B55A /* Pods_ExampleApp.framework in Frameworks */,
 				2A055F802BFDD24B001F0FFF /* libwitnesscalc_sha256_512.xcframework in Frameworks */,
+				2A29EDDF2BFF3DE400F4BBA3 /* DeviceKit in Frameworks */,
 				2A29DB8E2BF4BDE6005A04AA /* Rapidsnark.xcframework in Frameworks */,
 				2A29EDDA2BFEF84500F4BBA3 /* SwiftfulLoadingIndicators in Frameworks */,
 			);
@@ -210,7 +215,6 @@
 				2A055F6E2BFDB594001F0FFF /* witnesscalc_rsa_main.h */,
 				2A055F702BFDB594001F0FFF /* witnesscalc_sha256_512.h */,
 				2A29DB862BF4BCFC005A04AA /* Rapidsnark.mm */,
-				2A29DB7C2BF4BCC1005A04AA /* RapidsnarkFramework.h */,
 				2A29DB822BF4BCEE005A04AA /* prover.h */,
 				2A29DB832BF4BCEE005A04AA /* verifier.h */,
 				2A29DB942BF5A72F005A04AA /* bridge.h */,
@@ -222,7 +226,9 @@
 				2A29DB902BF4CF2D005A04AA /* FileDownloader.swift */,
 				CEFE53D12BA0009D00C62826 /* KeccakDylibCircuitView.swift */,
 				CEF891242B9834BB0033AE93 /* ExampleAppApp.swift */,
+				2A29EDE62BFF569700F4BBA3 /* BackgroundView.swift */,
 				2A055F832BFDDA2B001F0FFF /* TitleView.swift */,
+				2A29EDDB2BFF2B4C00F4BBA3 /* WebProverView.swift */,
 				2A055F732BFDC366001F0FFF /* BenchmarkView.swift */,
 				CEBBB4082B9C1A36007305CF /* KeccakCircuitView.swift */,
 				CEBBB40A2B9C1BE5007305CF /* Utils.swift */,
@@ -294,6 +300,7 @@
 			name = ExampleApp;
 			packageProductDependencies = (
 				2A29EDD92BFEF84500F4BBA3 /* SwiftfulLoadingIndicators */,
+				2A29EDDE2BFF3DE400F4BBA3 /* DeviceKit */,
 			);
 			productName = ExampleApp;
 			productReference = CEF891212B9834BB0033AE93 /* ExampleApp.app */;
@@ -374,6 +381,7 @@
 			mainGroup = CEF891182B9834BB0033AE93;
 			packageReferences = (
 				2A29EDD82BFEF84500F4BBA3 /* XCRemoteSwiftPackageReference "SwiftfulLoadingIndicators" */,
+				2A29EDDD2BFF3D6700F4BBA3 /* XCRemoteSwiftPackageReference "DeviceKit" */,
 			);
 			productRefGroup = CEF891222B9834BB0033AE93 /* Products */;
 			projectDirPath = "";
@@ -498,7 +506,9 @@
 				2AE6340F2BF49557003FE558 /* RSACircuitView.swift in Sources */,
 				2A29DB912BF4CF2D005A04AA /* FileDownloader.swift in Sources */,
 				2A055F742BFDC366001F0FFF /* BenchmarkView.swift in Sources */,
+				2A29EDDC2BFF2B4C00F4BBA3 /* WebProverView.swift in Sources */,
 				CEBBB4072B9C1974007305CF /* MultiplierCircuitView.swift in Sources */,
+				2A29EDE72BFF569700F4BBA3 /* BackgroundView.swift in Sources */,
 				CEBBB4092B9C1A36007305CF /* KeccakCircuitView.swift in Sources */,
 				2A055F842BFDDA2B001F0FFF /* TitleView.swift in Sources */,
 				2A29DB962BF61BBD005A04AA /* SentimentAnalyzer.swift in Sources */,
@@ -872,6 +882,14 @@
 				minimumVersion = 0.0.4;
 			};
 		};
+		2A29EDDD2BFF3D6700F4BBA3 /* XCRemoteSwiftPackageReference "DeviceKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/devicekit/DeviceKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.2.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -879,6 +897,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2A29EDD82BFEF84500F4BBA3 /* XCRemoteSwiftPackageReference "SwiftfulLoadingIndicators" */;
 			productName = SwiftfulLoadingIndicators;
+		};
+		2A29EDDE2BFF3DE400F4BBA3 /* DeviceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2A29EDDD2BFF3D6700F4BBA3 /* XCRemoteSwiftPackageReference "DeviceKit" */;
+			productName = DeviceKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

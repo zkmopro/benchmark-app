@@ -5,6 +5,7 @@
 //  Created by 鄭雅文 on 2024/5/22.
 //
 
+import DeviceKit
 import SwiftUI
 import SwiftfulLoadingIndicators
 
@@ -35,6 +36,9 @@ struct BenchmarkView: View {
   @State private var keccak256Witness: Data?
   @State private var sha256Witness: Data?
   @State private var rsaWitness: Data?
+
+  @State private var showWebProverView = false
+  @State private var showGoogleFormView = false
 
   struct WitnessTable: Identifiable {
     let circuit: String
@@ -77,192 +81,197 @@ struct BenchmarkView: View {
   let sha256Inputrl = URL(string: "https://ci-keys.zkmopro.org/sha256.json")
 
   var body: some View {
-    HStack {
-      if self.filesNum != self.totalFile {
-        Button(action: {
-          download()
-        }) {
-          Text("Download")
-        }.disabled(self.filesNum == self.totalFile)
+    NavigationStack {
+      VStack {
+        HStack {
+          if self.filesNum != self.totalFile {
+            Button(action: {
+              download()
+            }) {
+              Text("Download")
+            }.disabled(self.filesNum == self.totalFile).foregroundColor(.yellow)
+            Spacer()
+            Text("Files downloaded: \(filesNum) / \(totalFile)").foregroundColor(.white)
+          }
+        }.padding(.horizontal).background(Color(red: 37 / 255, green: 18 / 255, blue: 0 / 255))
+          .edgesIgnoringSafeArea(.all)
+        HStack {
+          if self.runningBenchmark {
+            LoadingIndicator(animation: .threeBalls, color: .white).fontWeight(.bold)
+              .frame(maxWidth: .infinity)
+              .background(Color.yellow)
+              .foregroundColor(.white)
+              .cornerRadius(10)
+              .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
+              .padding(.horizontal, 10)  // Adds padding on the sides
+          } else {
+            HStack {
+              Button(action: {
+                runBenchmark()
+              }) {
+                Text("Run Benchmark!")
+                  .fontWeight(.bold)
+
+              }
+              .padding()
+              .frame(maxWidth: .infinity)
+              .background(self.filesNum != self.totalFile ? Color.gray : Color.yellow)
+              .foregroundColor(.white)
+              .cornerRadius(10)
+              .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
+              .disabled(self.filesNum != self.totalFile)
+              .padding([.leading], 10)
+            }
+          }
+          Button(action: {
+            reset()
+          }) {
+            Text("Reset")
+              .fontWeight(.bold)
+              .padding()
+              .frame(maxWidth: .infinity)
+              .background(Color.gray)
+              .foregroundColor(.white)
+              .cornerRadius(10)
+              .shadow(color: Color.gray.opacity(0.3), radius: 10, x: 0, y: 5)
+          }
+          .padding(.horizontal, 10)  // Adds padding on the sides
+        }
+        Text("Witness Calculation")
+          .fontWeight(.bold)
+          .frame(maxWidth: .infinity)
+          .foregroundColor(.white)
+
+        List {
+          Section(
+            header: HStack {
+              Text("Circuit")
+                .font(.system(size: 14))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.headline)
+              Text("Witness-rs")
+                .font(.system(size: 14))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.headline)
+              Text("WitnessCalc")
+                .font(.system(size: 14))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.headline)
+            }
+          ) {
+            ForEach(witness) { wit in
+              HStack {
+                Text(wit.circuit)
+                  .frame(maxWidth: .infinity, alignment: .leading)
+                Text(wit.witnessRs)
+                  .frame(maxWidth: .infinity, alignment: .leading)
+                Text(wit.witnessCalc)
+                  .frame(maxWidth: .infinity, alignment: .leading)
+              }
+            }
+          }.listRowBackground(Color.gray)  // Background color for Section 1
+        }.listStyle(InsetGroupedListStyle())  // Apply a list style if desired
+        Text("Proof Generation")
+          .fontWeight(.bold)
+          .frame(maxWidth: .infinity)
+          .foregroundColor(.white)
+
+        List {
+          Section(
+            header: HStack {
+              Text("Circuit")
+                .font(.system(size: 14))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.headline)
+              Text("ark-works")
+                .font(.system(size: 14))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.headline)
+              Text("rapidsnark")
+                .font(.system(size: 14))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.headline)
+            }
+          ) {
+            ForEach(proofData) { pf in
+              HStack {
+                Text(pf.circuit)
+                  .frame(maxWidth: .infinity, alignment: .leading)
+                Text(pf.arkWorks)
+                  .frame(maxWidth: .infinity, alignment: .leading)
+                Text(pf.rapidSnark)
+                  .frame(maxWidth: .infinity, alignment: .leading)
+              }
+            }
+          }
+        }
+
+        HStack {
+          Button(action: {
+            self.showWebProverView = true
+          }) {
+            Text("Web Prover")
+              .fontWeight(.bold)
+              .padding()
+              .frame(maxWidth: .infinity)
+              .foregroundColor(.orange)
+              .cornerRadius(10)
+              .shadow(color: Color.orange.opacity(0.3), radius: 10, x: 0, y: 5)
+
+          }.overlay(
+            RoundedRectangle(cornerRadius: 10)
+              .stroke(Color.orange, lineWidth: 2)  // Border color and width
+          ).padding([.leading], 10)  // Adds padding on the sides
+          Button(action: {
+            copyToClipboard()
+            self.showGoogleFormView = true
+          }) {
+            Text("Submit Results")
+              .fontWeight(.bold)
+              .padding()
+              .frame(maxWidth: .infinity)
+              .background(Color.orange)
+              .foregroundColor(.white)
+              .cornerRadius(10)
+              .shadow(color: Color.orange.opacity(0.3), radius: 10, x: 0, y: 5)
+              .padding(.horizontal, 10)  // Adds padding on the sides
+          }
+          //Text("non-linear constraints: 59281")
+        }
         Spacer()
-        Text("Files downloaded: \(filesNum) / \(totalFile)")
+
+        // Text("non-linear constraints: 150848")
+
+        // Text("non-linear constraints: 157746")
+
+      }.background(Color(red: 37 / 255, green: 18 / 255, blue: 0 / 255)).edgesIgnoringSafeArea(
+        .all
+      )
+      .navigationDestination(isPresented: $showWebProverView) {
+        WebProverView(url: "https://web-prover.zkmopro.org")
       }
-    }.padding(.horizontal)
-    //LoadingIndicator(animation: .threeBalls, color: .white).background(.blue)
-
-    //Button(action: {
-    //  sha256()
-    //  witnessCalcSHA()
-    //  rapidsnarkProveSHA()
-    //}) {
-    // Text("SHA256")
-    //}.disabled(self.filesNum != self.totalFile)
-    //Text("non-linear constraints: 59281")
-    VStack {
-      if self.runningBenchmark {
-        HStack {
-          LoadingIndicator(animation: .threeBalls, color: .white).fontWeight(.bold)
-            .frame(maxWidth: .infinity)
-            .background(Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(10)
-            .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
-            .padding(.horizontal, 5)  // Adds padding on the sides
-          Button(action: {
-            reset()
-          }) {
-            Text("Reset")
-              .fontWeight(.bold)
-              .padding()
-              .frame(maxWidth: .infinity)
-              .background(Color.gray)
-              .foregroundColor(.white)
-              .cornerRadius(10)
-              .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
-          }
-          .padding(.horizontal, 5)  // Adds padding on the sides
-        }
-      } else {
-        HStack {
-          Button(action: {
-            runBenchmark()
-          }) {
-            Text("Run Benchmark!")
-              .fontWeight(.bold)
-              .padding()
-              .frame(maxWidth: .infinity)
-              .background(Color.blue)
-              .foregroundColor(.white)
-              .cornerRadius(10)
-              .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
-          }
-          .padding(.horizontal, 5)  // Adds padding on the sides
-          Button(action: {
-            reset()
-          }) {
-            Text("Reset")
-              .fontWeight(.bold)
-              .padding()
-              .frame(maxWidth: .infinity)
-              .background(Color.gray)
-              .foregroundColor(.white)
-              .cornerRadius(10)
-              .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
-          }
-          .padding(.horizontal, 5)  // Adds padding on the sides
-        }
-
-      }
-
-    }
-    Text("Witness Calculation")
-      .fontWeight(.bold)
-      .frame(maxWidth: .infinity)
-    List {
-      Section(
-        header: HStack {
-          Text("Circuit")
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .font(.headline)
-          Text("WitnessRs")
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .font(.headline)
-          Text("WitnessCalc")
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .font(.headline)
-        }
-      ) {
-        ForEach(witness) { wit in
-          HStack {
-            Text(wit.circuit)
-              .frame(maxWidth: .infinity, alignment: .leading)
-            Text(wit.witnessRs)
-              .frame(maxWidth: .infinity, alignment: .leading)
-            Text(wit.witnessCalc)
-              .frame(maxWidth: .infinity, alignment: .leading)
-          }
-        }
+      .navigationDestination(isPresented: $showGoogleFormView) {
+        WebProverView(url: "https://forms.gle/gUEzeQmkxsiJAqrF8")
       }
     }
-    .navigationTitle("Table with Header")
-
-    Text("Proof Generation")
-      .fontWeight(.bold)
-      .frame(maxWidth: .infinity)
-
-    List {
-      Section(
-        header: HStack {
-          Text("Circuit")
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .font(.headline)
-          Text("ark-works")
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .font(.headline)
-          Text("rapidSnark")
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .font(.headline)
-        }
-      ) {
-        ForEach(proofData) { pf in
-          HStack {
-            Text(pf.circuit)
-              .frame(maxWidth: .infinity, alignment: .leading)
-            Text(pf.arkWorks)
-              .frame(maxWidth: .infinity, alignment: .leading)
-            Text(pf.rapidSnark)
-              .frame(maxWidth: .infinity, alignment: .leading)
-          }
-        }
-      }
-    }
-    .navigationTitle("Table with Header")
-
-    // Text("Witness Generation Time").bold()
-    // Text("circom-witness-rs: \(sha256WitGenTime) ms")
-    // Text("WitnessCalc: \(sha256WitnessCalcTime) ms")
-    // Text("Proof Generation Time").bold()
-    // Text("ark-works: \(sha256ProofGenTime) ms")
-    // Text("rapidsnark: \(sha256RapidsnarkProveTime) ms")
-    // //Text("Verification Time").bold()
-    // //Text("ark-works: \(sha256VerifyTime) ms")
-    // Button(action: {
-    //   keccak256()
-    //   witnessCalcKeccak()
-    //   rapidsnarkProveKeccak()
-    // }) {
-    //   Text("Keccak256")
-    // }.disabled(self.filesNum != self.totalFile)
-    // Text("non-linear constraints: 150848")
-    // Text("Witness Generation Time").bold()
-    // Text("circom-witness-rs: \(keccak256WitGenTime) ms")
-    // Text("WitnessCalc: \(keccak256WitnessCalcTime) ms")
-    // Text("Proof Generation Time").bold()
-    // Text("ark-works: \(keccak256ProofGenTime) ms")
-    // Text("rapidsnark: \(keccak256RapidsnarkProveTime) ms")
-    // //Text("Verification Time").bold()
-    // //Text("ark-works: \(keccak256VerifyTime) ms")
-    // Button(action: {
-    //   RSA()
-    //   witnessCalcRSA()
-    //   rapidsnarkProveRSA()
-    // }) {
-    //   Text("RSA")
-    // }.disabled(self.filesNum != self.totalFile)
-    // Text("non-linear constraints: 157746")
-    // Text("Witness Generation Time").bold()
-    // Text("circom-witness-rs: \(rsaWitGenTime) ms")
-    // Text("WitnessCalc: \(rsaWitnessCalcTime) ms")
-    // Text("Proof Generation Time").bold()
-    // Text("ark-works: \(rsaProofGenTime) ms")
-    // Text("rapidsnark: \(rsaRapidsnarkProveTime) ms")
-    Link(
-      "Web prover",
-      destination: URL(string: "https://web-prover.zkmopro.org/")!)
   }
 }
 
 extension BenchmarkView {
+
+  func parseData() -> String {
+    var res = "\(Device.current),"
+    for i in 0...2 {
+      res.append(
+        " \(self.witness[i].circuit), \(self.witness[i].witnessRs), \(self.witness[i].witnessCalc), \(self.proofData[i].arkWorks), \(self.proofData[i].rapidSnark),"
+      )
+    }
+    return res
+  }
+
+  func copyToClipboard() {
+    UIPasteboard.general.string = parseData()
+  }
 
   func handleVisibility() {
     self.filesNum += 1
@@ -659,6 +668,20 @@ extension BenchmarkView {
     }
   }
 
+  struct Proof: Codable {
+    let piA: [String]
+    let piB: [[String]]
+    let piC: [String]
+    let proofProtocol: String
+
+    enum CodingKeys: String, CodingKey {
+      case piA = "pi_a"
+      case piB = "pi_b"
+      case piC = "pi_c"
+      case proofProtocol = "protocol"
+    }
+  }
+
   func rapidsnarkProveKeccak() {
     if let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
       .first
@@ -709,6 +732,17 @@ extension BenchmarkView {
         publicBuffer, &publicSize,
         errorBuffer, errorMaxSize
       )
+      var proofData = Data(bytes: proofBuffer, count: Int(proofSize))
+      print(proofData)
+      let proofNullIndex = proofData.firstIndex(of: 0x00)!
+      proofData = proofData[0..<proofNullIndex]
+      do {
+        let proof = try JSONDecoder().decode(Proof.self, from: proofData)
+        print(proof)
+      } catch {
+        print("error")
+      }
+
       let end = CFAbsoluteTimeGetCurrent()
       let timeTaken = end - start
       let keccak256RapidsnarkProveTime = String(format: "%.0f", timeTaken * 1000.0)

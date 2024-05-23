@@ -9,8 +9,11 @@ import SwiftUI
 
 struct TitleView: View {
     var body: some View {
-        Text("Mopro Benchmark").font(.headline)
-        Text("Mopro ベンチマーク").font(.headline)
+            Image("Header") // Replace "yourImageName" with the name of your
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .padding(0)
+        
     }
 }
 
