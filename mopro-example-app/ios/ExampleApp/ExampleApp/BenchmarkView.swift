@@ -51,8 +51,8 @@ struct BenchmarkView: View {
 
   @State private var witness = [
     WitnessTable(circuit: "keccak256", witnessRs: "0 ms", witnessCalc: "0 ms"),
-    WitnessTable(circuit: "sha256", witnessRs: "0 ms", witnessCalc: "0 ms"),
-    WitnessTable(circuit: "rsa", witnessRs: "0 ms", witnessCalc: "0 ms"),
+    WitnessTable(circuit: "SHA256", witnessRs: "0 ms", witnessCalc: "0 ms"),
+    WitnessTable(circuit: "RSA", witnessRs: "0 ms", witnessCalc: "0 ms"),
   ]
 
   struct ProofGenTable: Identifiable {
@@ -64,8 +64,8 @@ struct BenchmarkView: View {
 
   @State private var proofData = [
     ProofGenTable(circuit: "keccak256", arkWorks: "0 ms", rapidSnark: "0 ms"),
-    ProofGenTable(circuit: "sha256", arkWorks: "0 ms", rapidSnark: "0 ms"),
-    ProofGenTable(circuit: "rsa", arkWorks: "0 ms", rapidSnark: "0 ms"),
+    ProofGenTable(circuit: "SHA256", arkWorks: "0 ms", rapidSnark: "0 ms"),
+    ProofGenTable(circuit: "RSA", arkWorks: "0 ms", rapidSnark: "0 ms"),
   ]
 
   let rsaZkeyUrl = URL(string: "https://ci-keys.zkmopro.org/rsa_main_final.zkey")
@@ -85,17 +85,9 @@ struct BenchmarkView: View {
     NavigationStack {
       VStack {
         HStack {
-          if self.filesNum != self.totalFile {
-            Button(action: {
-              download()
-            }) {
-              Text("Download")
-            }.disabled(self.filesNum == self.totalFile).foregroundColor(.yellow)
-            Spacer()
-            Text("Files downloaded: \(filesNum) / \(totalFile)").foregroundColor(.white)
-          }
-        }.padding(.horizontal).background(Color(red: 37 / 255, green: 18 / 255, blue: 0 / 255))
-          .edgesIgnoringSafeArea(.all)
+          Spacer()
+          Text("Files downloaded: \(filesNum) / \(totalFile)").foregroundColor(.white)
+        }.padding(.horizontal)
         HStack {
           if self.runningBenchmark {
             LoadingIndicator(animation: .threeBalls, color: .white).fontWeight(.bold)
@@ -105,14 +97,27 @@ struct BenchmarkView: View {
               .cornerRadius(10)
               .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
               .padding(.horizontal, 10)  // Adds padding on the sides
+
+          } else if self.filesNum != self.totalFile {
+            Button(action: {
+              download()
+            }) {
+              Text("Download Files").fontWeight(.bold)
+            }.padding()
+              .frame(maxWidth: .infinity)
+              .background(Color.yellow)
+              .foregroundColor(.white)
+              .cornerRadius(10)
+              .shadow(color: Color.blue.opacity(0.3), radius: 10, x: 0, y: 5)
+              .disabled(self.filesNum == self.totalFile)
+              .padding([.leading], 10)
           } else {
             HStack {
               Button(action: {
                 runBenchmark()
               }) {
-                Text("Run Benchmark!")
+                Text("Run Benchmark")
                   .fontWeight(.bold)
-
               }
               .padding()
               .frame(maxWidth: .infinity)
@@ -139,6 +144,7 @@ struct BenchmarkView: View {
           .padding(.horizontal, 10)  // Adds padding on the sides
         }
         Text("Witness Calculation")
+          .padding(.top, 5)
           .fontWeight(.bold)
           .frame(maxWidth: .infinity)
           .foregroundColor(.white)
@@ -148,22 +154,22 @@ struct BenchmarkView: View {
             header: HStack {
               Text("Circuit")
                 .font(.system(size: 14))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
                 .font(.headline)
               Text("Witness-rs")
                 .font(.system(size: 14))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .trailing)
                 .font(.headline)
               Text("WitnessCalc")
                 .font(.system(size: 14))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .trailing)
                 .font(.headline)
             }
           ) {
             ForEach(witness) { wit in
               HStack {
                 Text(wit.circuit)
-                  .frame(maxWidth: .infinity, alignment: .trailing)
+                  .frame(maxWidth: .infinity, alignment: .center)
                 Text(wit.witnessRs)
                   .frame(maxWidth: .infinity, alignment: .trailing)
                 Text(wit.witnessCalc)
@@ -173,6 +179,7 @@ struct BenchmarkView: View {
           }.listRowBackground(Color.gray)  // Background color for Section 1
         }.listStyle(InsetGroupedListStyle())  // Apply a list style if desired
         Text("Proof Generation")
+          .padding(.top, 5)
           .fontWeight(.bold)
           .frame(maxWidth: .infinity)
           .foregroundColor(.white)
@@ -182,22 +189,22 @@ struct BenchmarkView: View {
             header: HStack {
               Text("Circuit")
                 .font(.system(size: 14))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
                 .font(.headline)
               Text("ark-works")
                 .font(.system(size: 14))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .trailing)
                 .font(.headline)
               Text("rapidsnark")
                 .font(.system(size: 14))
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .trailing)
                 .font(.headline)
             }
           ) {
             ForEach(proofData) { pf in
               HStack {
                 Text(pf.circuit)
-                  .frame(maxWidth: .infinity, alignment: .trailing)
+                  .frame(maxWidth: .infinity, alignment: .center)
                 Text(pf.arkWorks)
                   .frame(maxWidth: .infinity, alignment: .trailing)
                 Text(pf.rapidSnark)
@@ -239,8 +246,7 @@ struct BenchmarkView: View {
               .disabled(!self.finishRunning)
           }
           //Text("non-linear constraints: 59281")
-        }
-        Spacer()
+        }.padding(.bottom, 60)
 
         // Text("non-linear constraints: 150848")
 
@@ -282,11 +288,14 @@ extension BenchmarkView {
     self.filesNum += 1
     if self.filesNum == self.totalFile {
       self.isVisible = false
+      self.runningBenchmark = false
+    } else {
+      self.runningBenchmark = true
     }
   }
 
   func download() {
-
+    self.runningBenchmark = true
     FileDownloader.loadFileAsync(url: rsaZkeyUrl!) { (path, error) in
       print("RSA Zkey File downloaded to : \(path!)")
       handleVisibility()
@@ -350,6 +359,7 @@ extension BenchmarkView {
 
   func reset() {
     for i in 0...2 {
+      self.finishRunning = false
       self.witness[i].witnessRs = "0 ms"
       self.witness[i].witnessCalc = "0 ms"
       self.proofData[i].arkWorks = "0 ms"
